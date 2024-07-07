@@ -9,7 +9,6 @@
 package me.finn.unlegitlibrary.network.system.server.events.client.packets.received;
 
 import me.finn.unlegitlibrary.event.impl.Event;
-import me.finn.unlegitlibrary.network.system.packets.Packet;
 import me.finn.unlegitlibrary.network.system.server.ClientHandler;
 
 public class S_UnknownObjectReceivedEvent extends Event {

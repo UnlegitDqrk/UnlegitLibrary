@@ -18,7 +18,8 @@ import java.util.Arrays;
 public class ReflectUtils extends DefaultMethodsOverrider {
 
     public static Method getMethodByArgs(final Class<?> clazz, final Class<?>... args) {
-        for (Method method : clazz.getDeclaredMethods()) if (Arrays.equals(method.getParameterTypes(), args)) return method;
+        for (Method method : clazz.getDeclaredMethods())
+            if (Arrays.equals(method.getParameterTypes(), args)) return method;
         return null;
     }
 

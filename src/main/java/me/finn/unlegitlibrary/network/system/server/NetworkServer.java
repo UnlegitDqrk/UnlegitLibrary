@@ -34,8 +34,6 @@ public class NetworkServer {
 
     private ServerSocket serverSocket;
     private int attempt = 1;
-    private final Thread incomingConnectionThread = new Thread(this::incomingConnection);
-
     private NetworkServer(int port, PacketHandler packetHandler, EventManager eventManager, boolean autoRestart, boolean debugLog, int maxAttempts, int attemptDelayInSec) {
         this.port = port;
 
@@ -47,7 +45,7 @@ public class NetworkServer {
 
         this.maxAttempts = maxAttempts;
         this.attemptDelayInSec = attemptDelayInSec;
-    }
+    }    private final Thread incomingConnectionThread = new Thread(this::incomingConnection);
 
     public final int getPort() {
         return port;
@@ -208,6 +206,8 @@ public class NetworkServer {
             return new NetworkServer(port, packetHandler, eventManager, autoRestart, debugLog, maxAttempts, attemptDelayInSec);
         }
     }
+
+
 
 
 }

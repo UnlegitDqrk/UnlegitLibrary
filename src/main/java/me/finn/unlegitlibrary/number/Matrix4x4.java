@@ -19,29 +19,6 @@ public class Matrix4x4 extends DefaultMethodsOverrider {
         setIdentity();
     }
 
-    public final float[][] getMatrix() {
-        return matrix;
-    }
-
-    public final void setMatrix(float[][] matrix) {
-        this.matrix = matrix;
-    }
-
-    public final void setIdentity() {
-        matrix[0][0] = 1; matrix[0][1] = 0; matrix[0][2] = 0; matrix[0][3] = 0;
-        matrix[1][0] = 0; matrix[1][1] = 1; matrix[1][2] = 0; matrix[1][3] = 0;
-        matrix[2][0] = 0; matrix[2][1] = 0; matrix[2][2] = 1; matrix[2][3] = 0;
-        matrix[3][0] = 0; matrix[3][1] = 0; matrix[3][2] = 0; matrix[3][3] = 1;
-    }
-
-    public final void getBuffer(FloatBuffer buffer) {
-        buffer.put(matrix[0][0]).put(matrix[0][1]).put(matrix[0][2]).put(matrix[0][3]);
-        buffer.put(matrix[1][0]).put(matrix[1][1]).put(matrix[1][2]).put(matrix[1][3]);
-        buffer.put(matrix[2][0]).put(matrix[2][1]).put(matrix[2][2]).put(matrix[2][3]);
-        buffer.put(matrix[3][0]).put(matrix[3][1]).put(matrix[3][2]).put(matrix[3][3]);
-        buffer.flip();
-    }
-
     public static Matrix4x4 orthographic(float left, float right, float bottom, float top, float near, float far) {
         Matrix4x4 matrix4x4 = new Matrix4x4();
 
@@ -58,5 +35,40 @@ public class Matrix4x4 extends DefaultMethodsOverrider {
         matrix4x4.matrix[3][2] = -(far + near) / depth;
 
         return matrix4x4;
+    }
+
+    public final float[][] getMatrix() {
+        return matrix;
+    }
+
+    public final void setMatrix(float[][] matrix) {
+        this.matrix = matrix;
+    }
+
+    public final void setIdentity() {
+        matrix[0][0] = 1;
+        matrix[0][1] = 0;
+        matrix[0][2] = 0;
+        matrix[0][3] = 0;
+        matrix[1][0] = 0;
+        matrix[1][1] = 1;
+        matrix[1][2] = 0;
+        matrix[1][3] = 0;
+        matrix[2][0] = 0;
+        matrix[2][1] = 0;
+        matrix[2][2] = 1;
+        matrix[2][3] = 0;
+        matrix[3][0] = 0;
+        matrix[3][1] = 0;
+        matrix[3][2] = 0;
+        matrix[3][3] = 1;
+    }
+
+    public final void getBuffer(FloatBuffer buffer) {
+        buffer.put(matrix[0][0]).put(matrix[0][1]).put(matrix[0][2]).put(matrix[0][3]);
+        buffer.put(matrix[1][0]).put(matrix[1][1]).put(matrix[1][2]).put(matrix[1][3]);
+        buffer.put(matrix[2][0]).put(matrix[2][1]).put(matrix[2][2]).put(matrix[2][3]);
+        buffer.put(matrix[3][0]).put(matrix[3][1]).put(matrix[3][2]).put(matrix[3][3]);
+        buffer.flip();
     }
 }

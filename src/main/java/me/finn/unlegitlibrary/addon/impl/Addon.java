@@ -13,7 +13,6 @@ import me.finn.unlegitlibrary.addon.events.AddonEnabledEvent;
 import me.finn.unlegitlibrary.event.EventListener;
 import me.finn.unlegitlibrary.event.EventManager;
 import me.finn.unlegitlibrary.event.impl.Event;
-import me.finn.unlegitlibrary.utils.DefaultMethodsOverrider;
 
 import java.lang.reflect.InvocationTargetException;
 

@@ -30,10 +30,7 @@ public class ClientHandler {
     private Socket socket;
     private ObjectOutputStream objectOutputStream;
     private ObjectInputStream objectInputStream;
-
-    private final Thread receiveThread = new Thread(this::receive);
-
-    private int clientID;
+    private int clientID;    private final Thread receiveThread = new Thread(this::receive);
 
     public ClientHandler(NetworkServer networkServer, Socket socket, int clientID) throws IOException {
         this.networkServer = networkServer;
@@ -140,7 +137,7 @@ public class ClientHandler {
                         objectOutputStream.flush();
 
                         networkServer.getEventManager().executeEvent(new S_ClientConnectedEvent(this));
-                            continue;
+                        continue;
                     } else if (command.equalsIgnoreCase("c2s_disconnect")) {
                         if (clientID != id) continue;
                         networkServer.getEventManager().executeEvent(new S_ClientDisconnectedEvent(this));
@@ -154,7 +151,8 @@ public class ClientHandler {
 
                         if (networkServer.getPacketHandler().handlePacket(id, packet, objectInputStream))
                             networkServer.getEventManager().executeEvent(new S_PacketReceivedEvent(this, packet));
-                        else networkServer.getEventManager().executeEvent(new S_PacketFailedReceivedEvent(this, packet));
+                        else
+                            networkServer.getEventManager().executeEvent(new S_PacketFailedReceivedEvent(this, packet));
 
                         continue;
                     }
@@ -177,4 +175,6 @@ public class ClientHandler {
             exception.printStackTrace();
         }
     }
+
+
 }

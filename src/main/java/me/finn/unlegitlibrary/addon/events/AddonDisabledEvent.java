@@ -10,7 +10,6 @@ package me.finn.unlegitlibrary.addon.events;
 
 import me.finn.unlegitlibrary.addon.impl.Addon;
 import me.finn.unlegitlibrary.event.impl.Event;
-import me.finn.unlegitlibrary.utils.DefaultMethodsOverrider;
 
 public class AddonDisabledEvent extends Event {
 

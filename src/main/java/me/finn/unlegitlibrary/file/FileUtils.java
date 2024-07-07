@@ -51,27 +51,27 @@ public class FileUtils extends DefaultMethodsOverrider {
 
     public static void unzip(File source, String outputDirectory) throws IOException {
         ZipInputStream zis = new ZipInputStream(new FileInputStream(source));
-            ZipEntry entry = zis.getNextEntry();
+        ZipEntry entry = zis.getNextEntry();
 
-            while (entry != null) {
-                File file = new File(outputDirectory, entry.getName());
+        while (entry != null) {
+            File file = new File(outputDirectory, entry.getName());
 
-                if (entry.isDirectory()) file.mkdirs();
-                else {
-                    File parent = file.getParentFile();
-                    if (!parent.exists()) parent.mkdirs();
+            if (entry.isDirectory()) file.mkdirs();
+            else {
+                File parent = file.getParentFile();
+                if (!parent.exists()) parent.mkdirs();
 
-                    try (BufferedOutputStream bos = new BufferedOutputStream(new FileOutputStream(file))) {
-                        int bufferSize = Math.toIntExact(entry.getSize());
-                        byte[] buffer = new byte[bufferSize > 0 ? bufferSize : 1];
-                        int location;
+                try (BufferedOutputStream bos = new BufferedOutputStream(new FileOutputStream(file))) {
+                    int bufferSize = Math.toIntExact(entry.getSize());
+                    byte[] buffer = new byte[bufferSize > 0 ? bufferSize : 1];
+                    int location;
 
-                        while ((location = zis.read(buffer)) != -1) bos.write(buffer, 0, location);
-                    }
+                    while ((location = zis.read(buffer)) != -1) bos.write(buffer, 0, location);
                 }
-
-                entry = zis.getNextEntry();
             }
+
+            entry = zis.getNextEntry();
+        }
     }
 
 
@@ -122,7 +122,8 @@ public class FileUtils extends DefaultMethodsOverrider {
         File destinationFile = new File(toFolder, fileName);
 
 
-        if (replaceExisting) Files.copy(sourceFile.toPath(), destinationFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+        if (replaceExisting)
+            Files.copy(sourceFile.toPath(), destinationFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
         else Files.copy(sourceFile.toPath(), destinationFile.toPath());
     }
 

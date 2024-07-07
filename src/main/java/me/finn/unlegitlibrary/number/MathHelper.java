@@ -207,34 +207,6 @@ public class MathHelper extends DefaultMethodsOverrider {
         return value;
     }
 
-    public final float clamp(float value, float minimum, float maximum) {
-        if (value < minimum) return minimum;
-        if (value > maximum) return maximum;
-
-        return value;
-    }
-
-    public final int clamp(int value, int minimum, int maximum) {
-        if (value < minimum) return minimum;
-        if (value > maximum) return maximum;
-
-        return value;
-    }
-
-    public final double clamp(double value, double minimum, double maximum) {
-        if (value < minimum) return minimum;
-        if (value > maximum) return maximum;
-
-        return value;
-    }
-
-    public final long clamp(long value, long minimum, long maximum) {
-        if (value < minimum) return minimum;
-        if (value > maximum) return maximum;
-
-        return value;
-    }
-
     /**
      * the angle is reduced to an angle between -180 and +180 by mod, and a 360 check
      */
@@ -275,6 +247,34 @@ public class MathHelper extends DefaultMethodsOverrider {
         if (angle < -180) angle += 360;
 
         return angle;
+    }
+
+    public final float clamp(float value, float minimum, float maximum) {
+        if (value < minimum) return minimum;
+        if (value > maximum) return maximum;
+
+        return value;
+    }
+
+    public final int clamp(int value, int minimum, int maximum) {
+        if (value < minimum) return minimum;
+        if (value > maximum) return maximum;
+
+        return value;
+    }
+
+    public final double clamp(double value, double minimum, double maximum) {
+        if (value < minimum) return minimum;
+        if (value > maximum) return maximum;
+
+        return value;
+    }
+
+    public final long clamp(long value, long minimum, long maximum) {
+        if (value < minimum) return minimum;
+        if (value > maximum) return maximum;
+
+        return value;
     }
 
 }

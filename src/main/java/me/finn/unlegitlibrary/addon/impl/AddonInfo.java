@@ -8,8 +8,6 @@
 
 package me.finn.unlegitlibrary.addon.impl;
 
-import me.finn.unlegitlibrary.utils.DefaultMethodsOverrider;
-
 public class AddonInfo {
 
     private final String name;
@@ -41,9 +39,8 @@ public class AddonInfo {
 
     @Override
     public boolean equals(Object obj) {
-        if (!(obj instanceof AddonInfo)) return false;
+        if (!(obj instanceof AddonInfo other)) return false;
 
-        AddonInfo other = (AddonInfo) obj;
         return other.name.equalsIgnoreCase(name) && other.version.equalsIgnoreCase(version) && other.author.equalsIgnoreCase(author);
     }
 

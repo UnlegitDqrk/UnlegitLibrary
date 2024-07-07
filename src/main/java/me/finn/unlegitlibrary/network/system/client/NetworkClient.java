@@ -43,9 +43,9 @@ public class NetworkClient extends DefaultMethodsOverrider {
     private ObjectOutputStream objectOutputStream;
     private ObjectInputStream objectInputStream;
     private int clientID = -1;
-    private int attempt = 1;    private final Thread receiveThread = new Thread(this::receive);
+    private int attempt = 1;
+    private boolean needClientID = false;    private final Thread receiveThread = new Thread(this::receive);
 
-    private boolean needClientID = false;
     private NetworkClient(String host, int port, PacketHandler packetHandler, EventManager eventManager, boolean autoReconnect, boolean debugLog, int maxAttempts, int attemptDelayInSec) {
         this.host = host;
         this.port = port;

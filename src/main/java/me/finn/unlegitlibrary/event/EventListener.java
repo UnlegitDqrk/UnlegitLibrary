@@ -8,7 +8,5 @@
 
 package me.finn.unlegitlibrary.event;
 
-import me.finn.unlegitlibrary.utils.DefaultMethodsOverrider;
-
 public abstract class EventListener {
 }
