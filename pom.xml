@@ -5,8 +5,8 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>me.finn.unlegitlibrary</groupId>
-    <artifactId>UnlegitLibrary</artifactId>
-    <version>1.0-SNAPSHOT</version>
+    <artifactId>unlegitlibrary</artifactId>
+    <version>1.0</version>
 
     <properties>
         <maven.compiler.source>21</maven.compiler.source>
