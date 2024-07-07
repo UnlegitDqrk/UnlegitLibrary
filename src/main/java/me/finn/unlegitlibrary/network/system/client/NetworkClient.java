@@ -9,6 +9,7 @@
 package me.finn.unlegitlibrary.network.system.client;
 
 import me.finn.unlegitlibrary.event.EventManager;
+import me.finn.unlegitlibrary.network.system.NetworkPipeline;
 import me.finn.unlegitlibrary.network.system.client.events.packets.received.C_PacketFailedReceivedEvent;
 import me.finn.unlegitlibrary.network.system.client.events.packets.received.C_PacketReceivedEvent;
 import me.finn.unlegitlibrary.network.system.client.events.packets.received.C_UnknownObjectReceivedEvent;
@@ -29,15 +30,33 @@ import java.net.Socket;
 import java.net.SocketException;
 
 public class NetworkClient extends DefaultMethodsOverrider {
+    public class ClientPipeline extends NetworkPipeline {
+        public final NetworkClient networkClient;
+        public String host;
 
-    private final String host;
-    private final int port;
-    private final PacketHandler packetHandler;
-    private final EventManager eventManager;
-    private final boolean autoReconnect;
-    private final boolean debugLog;
-    private final int maxAttempts;
-    private final int attemptDelayInSec;
+        public ClientPipeline(NetworkClient networkClient) {
+            this.networkClient = networkClient;
+        }
+
+        @Override
+        public void implement() {
+            networkClient.host = host;
+            networkClient.port = port;
+            networkClient.packetHandler = packetHandler;
+            networkClient.eventManager = eventManager;
+            networkClient.maxAttempts = maxAttempts;
+            networkClient.attemptDelayInSec = attemptDelayInSeconds;
+            networkClient.debugLog = debugLog;
+        }
+    }
+
+    private String host;
+    private int port;
+    private PacketHandler packetHandler;
+    private EventManager eventManager;
+    private boolean debugLog;
+    private int maxAttempts;
+    private int attemptDelayInSec;
 
     private Socket socket;
     private ObjectOutputStream objectOutputStream;
@@ -46,19 +65,7 @@ public class NetworkClient extends DefaultMethodsOverrider {
     private int attempt = 1;
     private boolean needClientID = false;    private final Thread receiveThread = new Thread(this::receive);
 
-    private NetworkClient(String host, int port, PacketHandler packetHandler, EventManager eventManager, boolean autoReconnect, boolean debugLog, int maxAttempts, int attemptDelayInSec) {
-        this.host = host;
-        this.port = port;
-
-        this.packetHandler = packetHandler;
-        this.eventManager = eventManager;
-
-        this.autoReconnect = autoReconnect;
-        this.debugLog = debugLog;
-
-        this.maxAttempts = maxAttempts;
-        this.attemptDelayInSec = attemptDelayInSec;
-
+    private NetworkClient() {
         attempt = 1;
     }
 
@@ -83,7 +90,7 @@ public class NetworkClient extends DefaultMethodsOverrider {
     }
 
     public final boolean isAutoReconnectEnabled() {
-        return autoReconnect;
+        return maxAttempts != 0;
     }
 
     public final PacketHandler getPacketHandler() {
@@ -132,7 +139,7 @@ public class NetworkClient extends DefaultMethodsOverrider {
             attempt = 1;
             if (debugLog) System.out.println("Connected to Server. Attempts: " + attempt);
         } catch (SocketException exception) {
-            if (autoReconnect) reconnect();
+            if (isAutoReconnectEnabled()) reconnect();
             else throw exception;
         }
     }
@@ -233,8 +240,14 @@ public class NetworkClient extends DefaultMethodsOverrider {
             }
         } catch (EOFException exception) {
             attempt = 1;
-            if (autoReconnect && maxAttempts == -1 || attempt <= maxAttempts) reconnect();
-            else {
+            if (isAutoReconnectEnabled()) {
+                if (maxAttempts == -1) reconnect();
+                else if (attempt <= maxAttempts) reconnect();
+                else {
+                    eventManager.executeEvent(new C_StoppedEvent(this));
+                    exception.printStackTrace();
+                }
+            } else {
                 eventManager.executeEvent(new C_StoppedEvent(this));
                 exception.printStackTrace();
             }
@@ -245,7 +258,7 @@ public class NetworkClient extends DefaultMethodsOverrider {
     }
 
     private final void reconnect() {
-        if (autoReconnect) {
+        if (isAutoReconnectEnabled()) {
             if (isConnected()) {
                 try {
                     disconnect();
@@ -263,7 +276,8 @@ public class NetworkClient extends DefaultMethodsOverrider {
                 Thread.sleep(attemptDelayInSec * 1000L);
                 connect();
             } catch (InterruptedException | IOException exception) {
-                if (maxAttempts == -1 || attempt <= maxAttempts) reconnect();
+                if (maxAttempts == -1) reconnect();
+                else if (attempt <= maxAttempts) reconnect();
                 else exception.printStackTrace();
             }
         } else {
@@ -276,20 +290,14 @@ public class NetworkClient extends DefaultMethodsOverrider {
         }
     }
 
-    public static class ClientBuilder {
+    public class ClientBuilder {
         private int port;
         private String host;
         private PacketHandler packetHandler = new PacketHandler();
         private EventManager eventManager = new EventManager();
-        private boolean autoReconnect = false;
         private boolean debugLog = false;
-        private int maxAttempts = 10;
+        private int maxAttempts = 0;
         private int attemptDelayInSec = 1;
-
-        public final ClientBuilder enableAutoReconnect() {
-            this.autoReconnect = true;
-            return this;
-        }
 
         public final ClientBuilder enableDebugLog() {
             this.debugLog = true;
@@ -327,11 +335,21 @@ public class NetworkClient extends DefaultMethodsOverrider {
         }
 
         public final NetworkClient build() {
-            return new NetworkClient(host, port, packetHandler, eventManager, autoReconnect, debugLog, maxAttempts, attemptDelayInSec);
+            ClientPipeline pipeline = new ClientPipeline(new NetworkClient());
+
+            pipeline.host = host;
+            pipeline.port = port;
+
+            pipeline.packetHandler = packetHandler;
+            pipeline.eventManager = eventManager;
+
+            pipeline.maxAttempts = maxAttempts;
+
+            pipeline.logDebug = debugLog;
+            pipeline.attemptDelayInSeconds = attemptDelayInSec;
+
+            pipeline.implement();
+            return pipeline.networkClient;
         }
     }
-
-
-
-
 }

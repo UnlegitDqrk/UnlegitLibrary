@@ -9,6 +9,7 @@
 package me.finn.unlegitlibrary.network.system.server;
 
 import me.finn.unlegitlibrary.event.EventManager;
+import me.finn.unlegitlibrary.network.system.NetworkPipeline;
 import me.finn.unlegitlibrary.network.system.packets.Packet;
 import me.finn.unlegitlibrary.network.system.packets.PacketHandler;
 import me.finn.unlegitlibrary.network.system.server.events.server.S_StartedEvent;
@@ -23,28 +24,37 @@ import java.util.List;
 
 public class NetworkServer {
 
-    private final int port;
-    private final PacketHandler packetHandler;
-    private final EventManager eventManager;
-    private final boolean autoRestart;
-    private final boolean debugLog;
-    private final int maxAttempts;
-    private final int attemptDelayInSec;
+    public class ServerPipeline extends NetworkPipeline {
+
+        public final NetworkServer networkServer;
+
+        public ServerPipeline(NetworkServer networkServer) {
+            this.networkServer = networkServer;
+        }
+
+        @Override
+        public void implement() {
+            networkServer.port = port;
+            networkServer.debugLog = debugLog;
+
+            networkServer.packetHandler = packetHandler;
+            networkServer.eventManager = eventManager;
+
+            networkServer.maxAttempts = maxAttempts;
+            networkServer.attemptDelayInSec = attemptDelayInSec;
+        }
+    }
+    private int port;
+    private PacketHandler packetHandler;
+    private EventManager eventManager;
+    private boolean debugLog;
+    private int maxAttempts;
+    private int attemptDelayInSec;
     private final List<ClientHandler> clientHandlers = new ArrayList<>();
 
     private ServerSocket serverSocket;
     private int attempt = 1;
-    private NetworkServer(int port, PacketHandler packetHandler, EventManager eventManager, boolean autoRestart, boolean debugLog, int maxAttempts, int attemptDelayInSec) {
-        this.port = port;
-
-        this.packetHandler = packetHandler;
-        this.eventManager = eventManager;
-
-        this.autoRestart = autoRestart;
-        this.debugLog = debugLog;
-
-        this.maxAttempts = maxAttempts;
-        this.attemptDelayInSec = attemptDelayInSec;
+    private NetworkServer() {
     }    private final Thread incomingConnectionThread = new Thread(this::incomingConnection);
 
     public final int getPort() {
@@ -56,7 +66,7 @@ public class NetworkServer {
     }
 
     public final boolean isAutoRestart() {
-        return autoRestart;
+        return maxAttempts != 0;
     }
 
     public final boolean isDebugLogEnabled() {
@@ -95,8 +105,8 @@ public class NetworkServer {
 
             if (debugLog) System.out.println("Server started on port " + port + ". Attempts: " + attempt);
         } catch (BindException exception) {
-            if (autoRestart) {
-                if (attempt > maxAttempts) throw exception;
+            if (isAutoRestart()) {
+                if (attempt > maxAttempts && maxAttempts != -1) throw exception;
                 if (debugLog) System.out.println("Failed to start! Retrying... (Attempt: " + attempt++ + ")");
 
                 Thread.sleep(attemptDelayInSec * 1000L);
@@ -158,19 +168,13 @@ public class NetworkServer {
         return eventManager;
     }
 
-    public static class ServerBuilder {
+    public class ServerBuilder {
         private int port;
-        private boolean autoRestart = false;
         private boolean debugLog = false;
         private PacketHandler packetHandler = new PacketHandler();
         private EventManager eventManager = new EventManager();
-        private int maxAttempts = 10;
+        private int maxAttempts = 0;
         private int attemptDelayInSec = 1;
-
-        public final ServerBuilder enableAutoRestart() {
-            this.autoRestart = true;
-            return this;
-        }
 
         public final ServerBuilder enableDebugLog() {
             this.debugLog = true;
@@ -203,11 +207,20 @@ public class NetworkServer {
         }
 
         public final NetworkServer build() {
-            return new NetworkServer(port, packetHandler, eventManager, autoRestart, debugLog, maxAttempts, attemptDelayInSec);
+            ServerPipeline pipeline = new ServerPipeline(new NetworkServer());
+
+            pipeline.port = port;
+
+            pipeline.packetHandler = packetHandler;
+            pipeline.eventManager = eventManager;
+
+            pipeline.maxAttempts = maxAttempts;
+
+            pipeline.logDebug = debugLog;
+            pipeline.attemptDelayInSeconds = attemptDelayInSec;
+
+            pipeline.implement();
+            return pipeline.networkServer;
         }
     }
-
-
-
-
 }
