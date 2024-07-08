@@ -9,7 +9,6 @@
 package me.finn.unlegitlibrary.network.system.client;
 
 import me.finn.unlegitlibrary.event.EventManager;
-import me.finn.unlegitlibrary.network.system.NetworkPipeline;
 import me.finn.unlegitlibrary.network.system.client.events.packets.received.C_PacketFailedReceivedEvent;
 import me.finn.unlegitlibrary.network.system.client.events.packets.received.C_PacketReceivedEvent;
 import me.finn.unlegitlibrary.network.system.client.events.packets.received.C_UnknownObjectReceivedEvent;
@@ -30,43 +29,36 @@ import java.net.Socket;
 import java.net.SocketException;
 
 public class NetworkClient extends DefaultMethodsOverrider {
-    public class ClientPipeline extends NetworkPipeline {
-        public final NetworkClient networkClient;
-        public String host;
 
-        public ClientPipeline(NetworkClient networkClient) {
-            this.networkClient = networkClient;
-        }
+    private final String host;
+    private final int port;
 
-        @Override
-        public void implement() {
-            networkClient.host = host;
-            networkClient.port = port;
-            networkClient.packetHandler = packetHandler;
-            networkClient.eventManager = eventManager;
-            networkClient.maxAttempts = maxAttempts;
-            networkClient.attemptDelayInSec = attemptDelayInSeconds;
-            networkClient.debugLog = debugLog;
-        }
-    }
+    private final PacketHandler packetHandler;
+    private final EventManager eventManager;
 
-    private String host;
-    private int port;
-    private PacketHandler packetHandler;
-    private EventManager eventManager;
-    private boolean debugLog;
-    private int maxAttempts;
-    private int attemptDelayInSec;
+    private final boolean debugLog;
+    private final int maxAttempts;
+    private final int attemptDelayInSec;
 
     private Socket socket;
     private ObjectOutputStream objectOutputStream;
     private ObjectInputStream objectInputStream;
     private int clientID = -1;
     private int attempt = 1;
-    private boolean needClientID = false;    private final Thread receiveThread = new Thread(this::receive);
+    private boolean needClientID = false;
+    private final Thread receiveThread = new Thread(this::receive);
 
-    private NetworkClient() {
-        attempt = 1;
+    private NetworkClient(String host, int port, PacketHandler packetHandler, EventManager eventManager, boolean debugLog, int maxAttempts, int attemptDelayInSec) {
+        this.host = host;
+        this.port = port;
+
+        this.packetHandler = packetHandler;
+        this.eventManager = eventManager;
+        this.debugLog = debugLog;
+
+        this.maxAttempts = maxAttempts;
+        this.attemptDelayInSec = attemptDelayInSec;
+        this.attempt = 1;
     }
 
     public final int getClientID() {
@@ -335,21 +327,7 @@ public class NetworkClient extends DefaultMethodsOverrider {
         }
 
         public final NetworkClient build() {
-            ClientPipeline pipeline = new ClientPipeline(new NetworkClient());
-
-            pipeline.host = host;
-            pipeline.port = port;
-
-            pipeline.packetHandler = packetHandler;
-            pipeline.eventManager = eventManager;
-
-            pipeline.maxAttempts = maxAttempts;
-
-            pipeline.logDebug = debugLog;
-            pipeline.attemptDelayInSeconds = attemptDelayInSec;
-
-            pipeline.implement();
-            return pipeline.networkClient;
+            return new NetworkClient(host, port, packetHandler, eventManager, debugLog, maxAttempts, attemptDelayInSec);
         }
     }
 }

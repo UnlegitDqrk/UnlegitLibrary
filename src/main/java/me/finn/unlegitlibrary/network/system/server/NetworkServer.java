@@ -9,7 +9,6 @@
 package me.finn.unlegitlibrary.network.system.server;
 
 import me.finn.unlegitlibrary.event.EventManager;
-import me.finn.unlegitlibrary.network.system.NetworkPipeline;
 import me.finn.unlegitlibrary.network.system.packets.Packet;
 import me.finn.unlegitlibrary.network.system.packets.PacketHandler;
 import me.finn.unlegitlibrary.network.system.server.events.server.S_StartedEvent;
@@ -23,39 +22,32 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class NetworkServer {
+    private final int port;
+    private final boolean debugLog;
 
-    public class ServerPipeline extends NetworkPipeline {
+    private final PacketHandler packetHandler;
+    private final EventManager eventManager;
 
-        public final NetworkServer networkServer;
+    private final int maxAttempts;
+    private final int attemptDelayInSec;
 
-        public ServerPipeline(NetworkServer networkServer) {
-            this.networkServer = networkServer;
-        }
-
-        @Override
-        public void implement() {
-            networkServer.port = port;
-            networkServer.debugLog = debugLog;
-
-            networkServer.packetHandler = packetHandler;
-            networkServer.eventManager = eventManager;
-
-            networkServer.maxAttempts = maxAttempts;
-            networkServer.attemptDelayInSec = attemptDelayInSec;
-        }
-    }
-    private int port;
-    private PacketHandler packetHandler;
-    private EventManager eventManager;
-    private boolean debugLog;
-    private int maxAttempts;
-    private int attemptDelayInSec;
     private final List<ClientHandler> clientHandlers = new ArrayList<>();
+    private final Thread incomingConnectionThread = new Thread(this::incomingConnection);
 
     private ServerSocket serverSocket;
-    private int attempt = 1;
-    private NetworkServer() {
-    }    private final Thread incomingConnectionThread = new Thread(this::incomingConnection);
+    private int attempt;
+
+    private NetworkServer(int port, boolean debugLog, PacketHandler packetHandler, EventManager eventManager, int maxAttempts, int attemptDelayInSec) {
+        this.port = port;
+        this.debugLog = debugLog;
+
+        this.packetHandler = packetHandler;
+        this.eventManager = eventManager;
+
+        this.maxAttempts = maxAttempts;
+        this.attemptDelayInSec = attemptDelayInSec;
+        this.attempt = 1;
+    }
 
     public final int getPort() {
         return port;
@@ -168,7 +160,7 @@ public class NetworkServer {
         return eventManager;
     }
 
-    public class ServerBuilder {
+    public static class ServerBuilder {
         private int port;
         private boolean debugLog = false;
         private PacketHandler packetHandler = new PacketHandler();
@@ -207,20 +199,7 @@ public class NetworkServer {
         }
 
         public final NetworkServer build() {
-            ServerPipeline pipeline = new ServerPipeline(new NetworkServer());
-
-            pipeline.port = port;
-
-            pipeline.packetHandler = packetHandler;
-            pipeline.eventManager = eventManager;
-
-            pipeline.maxAttempts = maxAttempts;
-
-            pipeline.logDebug = debugLog;
-            pipeline.attemptDelayInSeconds = attemptDelayInSec;
-
-            pipeline.implement();
-            return pipeline.networkServer;
+            return new NetworkServer(port, debugLog, packetHandler, eventManager, maxAttempts, attemptDelayInSec);
         }
     }
 }
