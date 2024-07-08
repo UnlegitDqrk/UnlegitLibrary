@@ -282,7 +282,7 @@ public class NetworkClient extends DefaultMethodsOverrider {
         }
     }
 
-    public class ClientBuilder {
+    public static class ClientBuilder {
         private int port;
         private String host;
         private PacketHandler packetHandler = new PacketHandler();
