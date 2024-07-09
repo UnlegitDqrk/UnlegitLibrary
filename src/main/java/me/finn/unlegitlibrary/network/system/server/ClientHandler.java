@@ -97,7 +97,7 @@ public class ClientHandler {
         clientID = -1;
         receiveThread.interrupt();
 
-        networkServer.getClientHandlers().remove(this);
+        synchronized (networkServer.getClientHandlers()) { networkServer.getClientHandlers().remove(this); }
         networkServer.getEventManager().executeEvent(new S_ClientStoppedEvent(this));
     }
 
