@@ -13,7 +13,10 @@ import me.finn.unlegitlibrary.utils.DefaultMethodsOverrider;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 public class EventManager extends DefaultMethodsOverrider {
 
@@ -45,28 +48,47 @@ public class EventManager extends DefaultMethodsOverrider {
         eventListeners.put(listenerClass, clazz);
     }
 
-    public final void unregisterListener(Class<? extends EventListener> listenerClass) {
+    public synchronized final void unregisterListener(Class<? extends EventListener> listenerClass) {
         if (!isListenerRegistered(listenerClass)) return;
 
         Object clazz = eventListeners.get(listenerClass);
 
         synchronized (registeredListener) {
-            for (Class<? extends Event> eventClass : registeredListener.keySet()) {
-                HashMap<EventPriority, HashMap<Object, Method>> priorityMap = registeredListener.get(eventClass);
+            List<Class<? extends Event>> eventsToRemove = new ArrayList<>();
+
+            for (Map.Entry<Class<? extends Event>, HashMap<EventPriority, HashMap<Object, Method>>> entry : registeredListener.entrySet()) {
+                Class<? extends Event> eventClass = entry.getKey();
+                HashMap<EventPriority, HashMap<Object, Method>> priorityMap = entry.getValue();
 
                 if (priorityMap != null) {
                     synchronized (priorityMap) {
-                        for (EventPriority priority : priorityMap.keySet()) {
-                            HashMap<Object, Method> listeners = priorityMap.get(priority);
+                        List<EventPriority> prioritiesToRemove = new ArrayList<>();
+
+                        for (Map.Entry<EventPriority, HashMap<Object, Method>> priorityEntry : priorityMap.entrySet()) {
+                            EventPriority priority = priorityEntry.getKey();
+                            HashMap<Object, Method> listeners = priorityEntry.getValue();
+
                             if (listeners != null) {
                                 listeners.remove(clazz);
-                                if (listeners.isEmpty()) priorityMap.remove(priority);
+                                if (listeners.isEmpty()) {
+                                    prioritiesToRemove.add(priority);
+                                }
                             }
                         }
 
-                        if (priorityMap.isEmpty()) registeredListener.remove(eventClass);
+                        for (EventPriority priority : prioritiesToRemove) {
+                            priorityMap.remove(priority);
+                        }
+
+                        if (priorityMap.isEmpty()) {
+                            eventsToRemove.add(eventClass);
+                        }
                     }
                 }
+            }
+
+            for (Class<? extends Event> eventClass : eventsToRemove) {
+                registeredListener.remove(eventClass);
             }
         }
 

@@ -111,10 +111,10 @@ public class NetworkClient extends DefaultMethodsOverrider {
     }
 
     public synchronized final void connect() throws IOException, InterruptedException {
-        if (isConnected()) return;
-        if (debugLog) System.out.println("Connecting to server...");
-
         try {
+            if (isConnected()) return;
+            if (debugLog) System.out.println("Connecting to server...");
+
             socket = new Socket(host, port);
             socket.setTcpNoDelay(false);
 
@@ -132,7 +132,7 @@ public class NetworkClient extends DefaultMethodsOverrider {
             if (debugLog) System.out.println("Connected to Server. Attempts: " + attempt);
         } catch (SocketException exception) {
             if (isAutoReconnectEnabled()) reconnect();
-            else throw exception;
+            else if (!receiveThread.isInterrupted()) throw exception;
         }
     }
 
@@ -189,9 +189,9 @@ public class NetworkClient extends DefaultMethodsOverrider {
     }
 
     private final void receive() {
-        if (!isConnected()) return;
 
         try {
+            if (!isConnected()) return;
             String command = "";
 
             while (isConnected()) {
@@ -232,20 +232,27 @@ public class NetworkClient extends DefaultMethodsOverrider {
             }
         } catch (EOFException exception) {
             attempt = 1;
-            if (isAutoReconnectEnabled()) {
-                if (maxAttempts == -1) reconnect();
-                else if (attempt <= maxAttempts) reconnect();
-                else {
-                    eventManager.executeEvent(new C_StoppedEvent(this));
+            if (isAutoReconnectEnabled()) reconnect();
+            else if (!receiveThread.isInterrupted()) {
+                try {
+                    stop();
+                } catch (IOException exception1) {
                     exception.printStackTrace();
+                    exception1.printStackTrace();
                 }
-            } else {
-                eventManager.executeEvent(new C_StoppedEvent(this));
-                exception.printStackTrace();
             }
-        } catch (IOException | ClassNotFoundException exception) {
-            eventManager.executeEvent(new C_StoppedEvent(this));
+        } catch (ClassNotFoundException exception) {
             exception.printStackTrace();
+        } catch (IOException exception) {
+            eventManager.executeEvent(new C_StoppedEvent(this));
+            if (!receiveThread.isInterrupted()) {
+                try {
+                    stop();
+                } catch (IOException exception1) {
+                    exception.printStackTrace();
+                    exception1.printStackTrace();
+                }
+            }
         }
     }
 
@@ -256,7 +263,8 @@ public class NetworkClient extends DefaultMethodsOverrider {
                     disconnect();
                 } catch (IOException exception) {
                     if (maxAttempts > 0 && attempt > maxAttempts) {
-                        exception.printStackTrace();
+                        eventManager.executeEvent(new C_StoppedEvent(this));
+                        if (!receiveThread.isInterrupted()) exception.printStackTrace();
                         return;
                     }
                 }
@@ -270,14 +278,17 @@ public class NetworkClient extends DefaultMethodsOverrider {
             } catch (InterruptedException | IOException exception) {
                 if (maxAttempts == -1) reconnect();
                 else if (attempt <= maxAttempts) reconnect();
-                else exception.printStackTrace();
+                else {
+                    eventManager.executeEvent(new C_StoppedEvent(this));
+                    if (!receiveThread.isInterrupted()) exception.printStackTrace();
+                }
             }
         } else {
             try {
                 stop();
             } catch (IOException exception) {
                 eventManager.executeEvent(new C_StoppedEvent(this));
-                exception.printStackTrace();
+                if (!receiveThread.isInterrupted()) exception.printStackTrace();
             }
         }
     }

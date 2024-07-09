@@ -15,9 +15,7 @@ import me.finn.unlegitlibrary.network.system.server.events.server.S_StartedEvent
 import me.finn.unlegitlibrary.network.system.server.events.server.S_StoppedEvent;
 
 import java.io.IOException;
-import java.net.BindException;
-import java.net.ServerSocket;
-import java.net.Socket;
+import java.net.*;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -57,8 +55,8 @@ public class NetworkServer {
         return packetHandler;
     }
 
-    public final boolean isAutoRestart() {
-        return maxAttempts != 0;
+    public final boolean isAutoRestartEnabled() {
+        return maxAttempts != 0 && !incomingConnectionThread.isInterrupted();
     }
 
     public final boolean isDebugLogEnabled() {
@@ -83,10 +81,10 @@ public class NetworkServer {
     }
 
     public synchronized final void start() throws IOException, InterruptedException {
-        if (isRunning()) return;
-        if (debugLog) System.out.println("Starting server...");
-
         try {
+            if (isRunning()) return;
+            if (debugLog) System.out.println("Starting server...");
+
             clientHandlers.clear();
 
             serverSocket = new ServerSocket(port);
@@ -97,13 +95,8 @@ public class NetworkServer {
 
             if (debugLog) System.out.println("Server started on port " + port + ". Attempts: " + attempt);
         } catch (BindException exception) {
-            if (isAutoRestart()) {
-                if (attempt > maxAttempts && maxAttempts != -1) throw exception;
-                if (debugLog) System.out.println("Failed to start! Retrying... (Attempt: " + attempt++ + ")");
-
-                Thread.sleep(attemptDelayInSec * 1000L);
-                start();
-            } else throw exception;
+            if (isAutoRestartEnabled()) restart();
+            else if (!incomingConnectionThread.isInterrupted()) throw exception;
         }
     }
 
@@ -111,7 +104,9 @@ public class NetworkServer {
         if (!isRunning()) return;
         if (debugLog) System.out.println("Stopping server...");
 
-        clientHandlers.forEach(clientHandler -> {
+        List<ClientHandler> handlersToDisconnect = new ArrayList<>(clientHandlers);
+
+        handlersToDisconnect.forEach(clientHandler -> {
             try {
                 clientHandler.disconnect();
             } catch (IOException exception) {
@@ -119,6 +114,7 @@ public class NetworkServer {
             }
         });
 
+        handlersToDisconnect.clear();
         clientHandlers.clear();
 
         serverSocket.close();
@@ -135,9 +131,9 @@ public class NetworkServer {
     }
 
     private final void incomingConnection() {
-        if (!isRunning()) return;
-
         try {
+            if (!isRunning()) return;
+
             while (isRunning()) {
                 Socket socket = serverSocket.accept();
                 if (socket == null) continue;
@@ -146,8 +142,48 @@ public class NetworkServer {
                 if (debugLog) System.out.println("New incoming connection...");
                 clientHandlers.add(new ClientHandler(this, socket, clientHandlers.size() + 1));
             }
+        } catch (SocketException exception) {
+            if (isAutoRestartEnabled()) restart();
+            else if (!incomingConnectionThread.isInterrupted()) exception.printStackTrace();
         } catch (IOException exception) {
             exception.printStackTrace();
+        }
+    }
+
+    private final void restart() {
+        if (isAutoRestartEnabled()) {
+            if (isRunning()) {
+                try {
+                    stop();
+                } catch (IOException exception) {
+                    if (maxAttempts > 0 && attempt > maxAttempts) {
+                        eventManager.executeEvent(new S_StoppedEvent(this));
+                        exception.printStackTrace();
+                        return;
+                    }
+                }
+            }
+
+            if (debugLog) System.out.println("Trying to restart... (Attempt: " + attempt++ + ")");
+
+            try {
+                Thread.sleep(attemptDelayInSec * 1000L);
+                start();
+            } catch (InterruptedException | IOException exception) {
+                if (maxAttempts == -1) restart();
+                else if (attempt <= maxAttempts) restart();
+                else {
+                    eventManager.executeEvent(new S_StoppedEvent(this));
+                    exception.printStackTrace();
+                }
+            }
+        } else {
+            try {
+                stop();
+            } catch (IOException exception) {
+                eventManager.executeEvent(new S_StoppedEvent(this));
+                exception.printStackTrace();
+            }
         }
     }
 
