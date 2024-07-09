@@ -50,20 +50,22 @@ public class EventManager extends DefaultMethodsOverrider {
 
         Object clazz = eventListeners.get(listenerClass);
 
-        for (Class<? extends Event> eventClass : registeredListener.keySet()) {
-            HashMap<EventPriority, HashMap<Object, Method>> priorityMap = registeredListener.get(eventClass);
+        synchronized (registeredListener) {
+            for (Class<? extends Event> eventClass : registeredListener.keySet()) {
+                HashMap<EventPriority, HashMap<Object, Method>> priorityMap = registeredListener.get(eventClass);
 
-            if (priorityMap != null) {
-                synchronized (priorityMap) {
-                    for (EventPriority priority : priorityMap.keySet()) {
-                        HashMap<Object, Method> listeners = priorityMap.get(priority);
-                        if (listeners != null) {
-                            listeners.remove(clazz);
-                            if (listeners.isEmpty()) priorityMap.remove(priority);
+                if (priorityMap != null) {
+                    synchronized (priorityMap) {
+                        for (EventPriority priority : priorityMap.keySet()) {
+                            HashMap<Object, Method> listeners = priorityMap.get(priority);
+                            if (listeners != null) {
+                                listeners.remove(clazz);
+                                if (listeners.isEmpty()) priorityMap.remove(priority);
+                            }
                         }
-                    }
 
-                    if (priorityMap.isEmpty()) registeredListener.remove(eventClass);
+                        if (priorityMap.isEmpty()) registeredListener.remove(eventClass);
+                    }
                 }
             }
         }
