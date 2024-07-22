@@ -124,7 +124,8 @@ public class Vector3 {
 
     @Override
     public final boolean equals(Object obj) {
-        if (!(obj instanceof Vector3 vector3)) return false;
+        if (!(obj instanceof Vector3)) return false;
+        Vector3 vector3 = (Vector3) obj;
         return vector3.x == x && vector3.y == y && vector3.z == z;
     }
 

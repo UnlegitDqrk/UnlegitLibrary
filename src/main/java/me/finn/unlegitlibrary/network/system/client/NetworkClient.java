@@ -202,7 +202,8 @@ public class NetworkClient extends DefaultMethodsOverrider {
                     continue;
                 }
 
-                if (received instanceof Integer id) {
+                if (received instanceof Integer) {
+                    int id = (Integer) received;
                     if (command.equalsIgnoreCase("s2c_connect")) {
                         clientID = id;
                         command = "";

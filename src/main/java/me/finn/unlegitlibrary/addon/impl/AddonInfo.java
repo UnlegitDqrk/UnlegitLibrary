@@ -39,8 +39,8 @@ public class AddonInfo {
 
     @Override
     public boolean equals(Object obj) {
-        if (!(obj instanceof AddonInfo other)) return false;
-
+        if (!(obj instanceof AddonInfo)) return false;
+        AddonInfo other = (AddonInfo) obj;
         return other.name.equalsIgnoreCase(name) && other.version.equalsIgnoreCase(version) && other.author.equalsIgnoreCase(author);
     }
 

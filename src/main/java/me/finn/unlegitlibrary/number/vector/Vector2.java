@@ -100,7 +100,8 @@ public class Vector2 {
 
     @Override
     public final boolean equals(Object obj) {
-        if (!(obj instanceof Vector2 vector2)) return false;
+        if (!(obj instanceof Vector2)) return false;
+        Vector2 vector2 = (Vector2) obj;
         return vector2.x == x && vector2.y == y;
     }
 

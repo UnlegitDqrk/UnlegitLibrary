@@ -127,7 +127,8 @@ public class ClientHandler {
                     continue;
                 }
 
-                if (received instanceof Integer id) {
+                if (received instanceof Integer) {
+                    int id = (Integer) received;
                     if (command.equalsIgnoreCase("c2s_connect")) {
                         if (clientID == id) continue;
                         command = "";

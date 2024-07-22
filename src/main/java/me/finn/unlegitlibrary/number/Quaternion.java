@@ -76,7 +76,8 @@ public class Quaternion {
 
     @Override
     public final boolean equals(Object obj) {
-        if (!(obj instanceof Quaternion quaternion)) return false;
+        if (!(obj instanceof Quaternion)) return false;
+        Quaternion quaternion = (Quaternion) obj;
         return quaternion.x == x && quaternion.y == y && quaternion.z == z && quaternion.w == w;
     }
 
