@@ -13,10 +13,10 @@ import me.finn.unlegitlibrary.network.system.client.NetworkClient;
 
 public class C_ConnectedEvent extends Event {
 
-    public final NetworkClient networkClient;
+    public final NetworkClient client;
 
-    public C_ConnectedEvent(NetworkClient networkClient) {
-        this.networkClient = networkClient;
+    public C_ConnectedEvent(NetworkClient client) {
+        this.client = client;
     }
 
     @Override

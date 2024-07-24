@@ -13,10 +13,10 @@ import me.finn.unlegitlibrary.network.system.client.NetworkClient;
 
 public class C_DisconnectedEvent extends Event {
 
-    public final NetworkClient networkClient;
+    public final NetworkClient client;
 
-    public C_DisconnectedEvent(NetworkClient networkClient) {
-        this.networkClient = networkClient;
+    public C_DisconnectedEvent(NetworkClient client) {
+        this.client = client;
     }
 
     @Override

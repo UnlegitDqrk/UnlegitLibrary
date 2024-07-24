@@ -6,17 +6,22 @@
  * See LICENSE-File if exists
  */
 
-package me.finn.unlegitlibrary.network.system.server.events.server;
+package me.finn.unlegitlibrary.network.system.client.events.send;
 
 import me.finn.unlegitlibrary.event.impl.Event;
-import me.finn.unlegitlibrary.network.system.server.NetworkServer;
+import me.finn.unlegitlibrary.network.system.client.NetworkClient;
+import me.finn.unlegitlibrary.network.system.packets.Packet;
 
-public class S_StartedEvent extends Event {
+public class C_PacketFailedSendEvent extends Event {
 
-    public final NetworkServer networkServer;
+    public final NetworkClient client;
+    public final Packet packet;
+    public final Exception exception;
 
-    public S_StartedEvent(NetworkServer networkServer) {
-        this.networkServer = networkServer;
+    public C_PacketFailedSendEvent(NetworkClient client, Packet packet, Exception exception) {
+        this.client = client;
+        this.packet = packet;
+        this.exception = exception;
     }
 
     @Override

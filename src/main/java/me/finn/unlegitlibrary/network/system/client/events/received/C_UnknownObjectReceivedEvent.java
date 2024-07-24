@@ -6,20 +6,19 @@
  * See LICENSE-File if exists
  */
 
-package me.finn.unlegitlibrary.network.system.client.events.packets.received;
+package me.finn.unlegitlibrary.network.system.client.events.received;
 
 import me.finn.unlegitlibrary.event.impl.Event;
 import me.finn.unlegitlibrary.network.system.client.NetworkClient;
-import me.finn.unlegitlibrary.network.system.packets.Packet;
 
-public class C_PacketReceivedEvent extends Event {
+public class C_UnknownObjectReceivedEvent extends Event {
 
-    public final NetworkClient networkClient;
-    public final Packet packet;
+    public final NetworkClient client;
+    public final Object received;
 
-    public C_PacketReceivedEvent(NetworkClient networkClient, Packet packet) {
-        this.networkClient = networkClient;
-        this.packet = packet;
+    public C_UnknownObjectReceivedEvent(NetworkClient client, Object received) {
+        this.client = client;
+        this.received = received;
     }
 
     @Override

@@ -6,17 +6,20 @@
  * See LICENSE-File if exists
  */
 
-package me.finn.unlegitlibrary.network.system.client.events.state;
+package me.finn.unlegitlibrary.network.system.client.events.send;
 
 import me.finn.unlegitlibrary.event.impl.Event;
 import me.finn.unlegitlibrary.network.system.client.NetworkClient;
+import me.finn.unlegitlibrary.network.system.packets.Packet;
 
-public class C_StoppedEvent extends Event {
+public class C_PacketSendEvent extends Event {
 
-    public final NetworkClient networkClient;
+    public final NetworkClient client;
+    public final Packet packet;
 
-    public C_StoppedEvent(NetworkClient networkClient) {
-        this.networkClient = networkClient;
+    public C_PacketSendEvent(NetworkClient client, Packet packet) {
+        this.client = client;
+        this.packet = packet;
     }
 
     @Override

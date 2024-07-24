@@ -9,213 +9,55 @@
 package me.finn.unlegitlibrary.network.system.server;
 
 import me.finn.unlegitlibrary.event.EventManager;
+import me.finn.unlegitlibrary.network.system.client.NetworkClient;
+import me.finn.unlegitlibrary.network.system.packets.impl.ClientDisconnectPacket;
+import me.finn.unlegitlibrary.network.system.packets.impl.ClientIDPacket;
+import me.finn.unlegitlibrary.network.system.server.events.connection.S_IncomingConnectionEvent;
+import me.finn.unlegitlibrary.network.system.server.events.connection.S_IncomingConnectionThreadFailedEvent;
+import me.finn.unlegitlibrary.network.system.server.events.state.server.S_StartedEvent;
+import me.finn.unlegitlibrary.network.system.server.events.state.server.S_StoppedEvent;
 import me.finn.unlegitlibrary.network.system.packets.Packet;
 import me.finn.unlegitlibrary.network.system.packets.PacketHandler;
-import me.finn.unlegitlibrary.network.system.server.events.server.S_StartedEvent;
-import me.finn.unlegitlibrary.network.system.server.events.server.S_StoppedEvent;
+import me.finn.unlegitlibrary.utils.DefaultMethodsOverrider;
+import me.finn.unlegitlibrary.utils.Logger;
 
 import java.io.IOException;
-import java.net.*;
+import java.lang.reflect.InvocationTargetException;
+import java.net.ServerSocket;
+import java.net.Socket;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 
-public class NetworkServer {
-    private final int port;
-    private final boolean debugLog;
+public class NetworkServer extends DefaultMethodsOverrider {
 
-    private final PacketHandler packetHandler;
-    private final EventManager eventManager;
-
-    private final int maxAttempts;
-    private final int attemptDelayInSec;
-
-    private final List<ClientHandler> clientHandlers = new ArrayList<>();
-    private final Thread incomingConnectionThread = new Thread(this::incomingConnection);
-
-    private ServerSocket serverSocket;
-    private int attempt;
-
-    private NetworkServer(int port, boolean debugLog, PacketHandler packetHandler, EventManager eventManager, int maxAttempts, int attemptDelayInSec) {
-        this.port = port;
-        this.debugLog = debugLog;
-
-        this.packetHandler = packetHandler;
-        this.eventManager = eventManager;
-
-        this.maxAttempts = maxAttempts;
-        this.attemptDelayInSec = attemptDelayInSec;
-        this.attempt = 1;
-    }
-
-    public final int getPort() {
-        return port;
-    }
-
-    public final PacketHandler getPacketHandler() {
-        return packetHandler;
-    }
-
-    public final boolean isAutoRestartEnabled() {
-        return maxAttempts != 0 && !incomingConnectionThread.isInterrupted();
-    }
-
-    public final boolean isDebugLogEnabled() {
-        return debugLog;
-    }
-
-    public final ServerSocket getServerSocket() {
-        return serverSocket;
-    }
-
-    public final List<ClientHandler> getClientHandlers() {
-        return clientHandlers;
-    }
-
-    public final Thread getIncomingConnectionThread() {
-        return incomingConnectionThread;
-    }
-
-    public final boolean isRunning() {
-        return serverSocket != null && !serverSocket.isClosed() && serverSocket.isBound() &&
-                incomingConnectionThread.isAlive() && !incomingConnectionThread.isInterrupted();
-    }
-
-    public synchronized final void start() throws IOException, InterruptedException {
-        try {
-            if (isRunning()) return;
-            if (debugLog) System.out.println("Starting server...");
-
-            clientHandlers.clear();
-
-            serverSocket = new ServerSocket(port);
-            incomingConnectionThread.start();
-
-            attempt = 1;
-            eventManager.executeEvent(new S_StartedEvent(this));
-
-            if (debugLog) System.out.println("Server started on port " + port + ". Attempts: " + attempt);
-        } catch (BindException exception) {
-            if (isAutoRestartEnabled()) restart();
-            else if (!incomingConnectionThread.isInterrupted()) throw exception;
-        }
-    }
-
-    public synchronized final void stop() throws IOException {
-        if (!isRunning()) return;
-        if (debugLog) System.out.println("Stopping server...");
-
-        List<ClientHandler> handlersToDisconnect = new ArrayList<>(clientHandlers);
-
-        handlersToDisconnect.forEach(clientHandler -> {
-            try {
-                clientHandler.disconnect();
-            } catch (IOException exception) {
-                exception.printStackTrace();
-            }
-        });
-
-        handlersToDisconnect.clear();
-        clientHandlers.clear();
-
-        serverSocket.close();
-        incomingConnectionThread.interrupt();
-
-        serverSocket = null;
-
-        eventManager.executeEvent(new S_StoppedEvent(this));
-        if (debugLog) System.out.println("Server stopped.");
-    }
-
-    public final boolean sendPacket(ClientHandler clientHandler, Packet packet) throws IOException, ClassNotFoundException {
-        return clientHandler.sendPacket(packet);
-    }
-
-    private final void incomingConnection() {
-        try {
-            if (!isRunning()) return;
-
-            while (isRunning()) {
-                Socket socket = serverSocket.accept();
-                if (socket == null) continue;
-
-                socket.setTcpNoDelay(false);
-                if (debugLog) System.out.println("New incoming connection...");
-                clientHandlers.add(new ClientHandler(this, socket, clientHandlers.size() + 1));
-            }
-        } catch (SocketException exception) {
-            if (isAutoRestartEnabled()) restart();
-            else if (!incomingConnectionThread.isInterrupted()) exception.printStackTrace();
-        } catch (IOException exception) {
-            exception.printStackTrace();
-        }
-    }
-
-    private final void restart() {
-        if (isAutoRestartEnabled()) {
-            if (isRunning()) {
-                try {
-                    stop();
-                } catch (IOException exception) {
-                    if (maxAttempts > 0 && attempt > maxAttempts) {
-                        eventManager.executeEvent(new S_StoppedEvent(this));
-                        exception.printStackTrace();
-                        return;
-                    }
-                }
-            }
-
-            if (debugLog) System.out.println("Trying to restart... (Attempt: " + attempt++ + ")");
-
-            try {
-                Thread.sleep(attemptDelayInSec * 1000L);
-                start();
-            } catch (InterruptedException | IOException exception) {
-                if (maxAttempts == -1) restart();
-                else if (attempt <= maxAttempts) restart();
-                else {
-                    eventManager.executeEvent(new S_StoppedEvent(this));
-                    exception.printStackTrace();
-                }
-            }
-        } else {
-            try {
-                stop();
-            } catch (IOException exception) {
-                eventManager.executeEvent(new S_StoppedEvent(this));
-                exception.printStackTrace();
-            }
-        }
-    }
-
-    public final ClientHandler getClientHandlerByID(int id) {
-        for (ClientHandler clientHandler : clientHandlers) if (clientHandler.getClientID() == id) return clientHandler;
-        return null;
-    }
-
-    public final EventManager getEventManager() {
-        return eventManager;
-    }
-
-    public static class ServerBuilder {
+    public static class ServerBuilder extends DefaultMethodsOverrider {
         private int port;
-        private boolean debugLog = false;
-        private PacketHandler packetHandler = new PacketHandler();
-        private EventManager eventManager = new EventManager();
-        private int maxAttempts = 0;
-        private int attemptDelayInSec = 1;
 
-        public final ServerBuilder enableDebugLog() {
-            this.debugLog = true;
-            return this;
-        }
+        private PacketHandler packetHandler;
+        private EventManager eventManager;
+        private Logger logger;
 
-        public final ServerBuilder setPort(int port) {
-            this.port = port;
-            return this;
+        private int maxRestartAttempts = 0;
+        private int restartDelay = 3000;
+        private int timeout = 3000;
+
+        public final NetworkServer build() throws InvocationTargetException, NoSuchMethodException, InstantiationException, IllegalAccessException {
+            return new NetworkServer(port, packetHandler, eventManager, logger, maxRestartAttempts, restartDelay, timeout);
         }
 
         public final ServerBuilder setEventManager(EventManager eventManager) {
             this.eventManager = eventManager;
+            return this;
+        }
+
+        public final ServerBuilder setLogger(Logger logger) {
+            this.logger = logger;
+            return this;
+        }
+
+        public final ServerBuilder setMaxReconnectAttempts(int maxRestartAttempts) {
+            this.maxRestartAttempts = maxRestartAttempts;
             return this;
         }
 
@@ -224,18 +66,192 @@ public class NetworkServer {
             return this;
         }
 
-        public final ServerBuilder setAttemptDelayInSeconds(int attemptDelayInSec) {
-            this.attemptDelayInSec = attemptDelayInSec;
+        public final ServerBuilder setPort(int port) {
+            this.port = port;
             return this;
         }
 
-        public final ServerBuilder setMaxAttempts(int maxAttempts) {
-            this.maxAttempts = maxAttempts;
+        public final ServerBuilder setReconnectDelay(int reconnectDelay) {
+            this.restartDelay = reconnectDelay;
             return this;
         }
 
-        public final NetworkServer build() {
-            return new NetworkServer(port, debugLog, packetHandler, eventManager, maxAttempts, attemptDelayInSec);
+        public final ServerBuilder setTimeout(int timeout) {
+            this.timeout = timeout;
+            return this;
         }
+    }
+
+    private final int port;
+
+    private final PacketHandler packetHandler;
+    private final EventManager eventManager;
+    private final Logger logger;
+
+    private int currentAttempts;
+    private final int timeout;
+    private final int maxRestartAttempts;
+    private final int restartDelay;
+
+    private final List<ConnectionHandler> connectionHandlers = new ArrayList<>();
+    public final Thread incomingConnectionThread = new Thread(this::incomingConnection);
+
+    private ServerSocket serverSocket;
+
+    public NetworkServer(int port, PacketHandler packetHandler, EventManager eventManager, Logger logger, int maxRestartAttempts, int restartDelay, int timeout) throws InvocationTargetException, NoSuchMethodException, InstantiationException, IllegalAccessException {
+        this.port = port;
+        this.timeout = timeout;
+
+        this.packetHandler = packetHandler;
+        this.eventManager = eventManager;
+        this.logger = logger;
+
+        this.maxRestartAttempts = maxRestartAttempts;
+        this.restartDelay = restartDelay;
+        this.currentAttempts = 0;
+
+        this.packetHandler.setServerInstance(this);
+        this.packetHandler.registerPacket(ClientDisconnectPacket.class);
+        this.packetHandler.registerPacket(ClientIDPacket.class);
+    }
+
+    public final Logger getLogger() {
+        return logger;
+    }
+
+    public final EventManager getEventManager() {
+        return eventManager;
+    }
+
+    public final int getPort() {
+        return port;
+    }
+
+    public final ServerSocket getServerSocket() {
+        return serverSocket;
+    }
+
+    public final PacketHandler getPacketHandler() {
+        return packetHandler;
+    }
+
+    public final List<ConnectionHandler> getConnectionHandlers() {
+        return connectionHandlers;
+    }
+
+    public final boolean isAutoRestartEnabled() {
+        return maxRestartAttempts != 0;
+    }
+
+    public final boolean isRunning() {
+        return serverSocket != null && !serverSocket.isClosed() && serverSocket.isBound() &&
+                incomingConnectionThread.isAlive() && !incomingConnectionThread.isInterrupted();
+    }
+
+    public final ConnectionHandler getConnectionHandlerByID(int clientID) {
+        return connectionHandlers.get(clientID);
+    }
+
+    public synchronized final boolean stop() {
+        if (!isRunning()) return false;
+
+        if (logger == null) System.out.println("Trying to stop server");
+        else logger.info("Trying to stop server");
+
+        new ArrayList<>(connectionHandlers).forEach(connectionHandler -> connectionHandler.disconnect(true));
+        connectionHandlers.clear();
+
+        incomingConnectionThread.interrupt();
+        serverSocket = null;
+        currentAttempts = 0;
+
+        if (logger == null) System.out.println("Server stopped");
+        else logger.info("Server stopped");
+
+        eventManager.executeEvent(new S_StoppedEvent(this));
+        return true;
+    }
+
+    public synchronized final boolean start() {
+        if (isRunning()) return false;
+
+        if (logger == null) System.out.println("Trying to start on port " + port);
+        else logger.info("Trying to start on port " + port);
+
+        try {
+            serverSocket = new ServerSocket(port);
+            serverSocket.setSoTimeout(timeout);
+
+            incomingConnectionThread.start();
+
+            if (currentAttempts == 0) currentAttempts++;
+            if (logger == null) System.out.println("Started ad port" + port + " (Attempts: " + currentAttempts + ")");
+            else logger.info("Started at port " + port + " (Attempts: " + currentAttempts + ")");
+
+            currentAttempts = 0;
+
+            eventManager.executeEvent(new S_StartedEvent(this));
+            return true;
+        } catch (IOException exception) {
+            if (maxRestartAttempts != 0) {
+                try {
+                    Thread.sleep(restartDelay);
+                } catch (InterruptedException sleepThreadException) {
+                    if (logger == null) System.err.println("Restart exception: " + sleepThreadException.getMessage());
+                    else logger.exception("Restart exception", sleepThreadException);
+                }
+
+                currentAttempts++;
+                if (currentAttempts <= maxRestartAttempts || maxRestartAttempts < 0) return start();
+            }
+
+            if (logger == null) System.err.println("Failed to start on port " + port + ": " + exception.getMessage());
+            else logger.exception("Failed to start on port " + port, exception);
+        }
+
+        return false;
+    }
+
+    public final boolean sendPacket(int clientID, Packet packet) {
+        return getConnectionHandlerByID(clientID).sendPacket(packet);
+    }
+
+    public final boolean sendPacket(Packet packet, int clientID) {
+        return sendPacket(clientID, packet);
+    }
+
+    public final Thread getIncomingConnectionThread() {
+        return incomingConnectionThread;
+    }
+
+    public final boolean broadcastPacket(Packet packet) {
+        AtomicBoolean toReturn = new AtomicBoolean(false);
+        connectionHandlers.forEach(connectionHandler -> toReturn.set(connectionHandler.sendPacket(packet)));
+        return toReturn.get();
+    }
+
+    private void incomingConnection() {
+        if (!isRunning()) return;
+
+        try {
+            while (isRunning()) {
+                Socket socket = serverSocket.accept();
+                socket.setTcpNoDelay(true);
+                socket.setSoTimeout(timeout);
+
+                if (logger == null) System.out.println("Accepted connection from " + socket.getRemoteSocketAddress());
+                else logger.info("Accepted connection from " + socket.getRemoteSocketAddress());
+
+                eventManager.executeEvent(new S_IncomingConnectionEvent(this, socket));
+                connectionHandlers.add(new ConnectionHandler(this, socket, connectionHandlers.size() + 1));
+            }
+        } catch (IOException exception) {
+            if (logger == null) System.err.println("Accept exception: " + exception.getMessage());
+            else logger.exception("Accept exception", exception);
+
+            eventManager.executeEvent(new S_IncomingConnectionThreadFailedEvent(this, exception));
+        }
+
+        stop();
     }
 }

@@ -6,16 +6,20 @@
  * See LICENSE-File if exists
  */
 
-package me.finn.unlegitlibrary.network.system.server.events.client.state;
+package me.finn.unlegitlibrary.network.system.client.events.received;
 
 import me.finn.unlegitlibrary.event.impl.Event;
-import me.finn.unlegitlibrary.network.system.server.ClientHandler;
+import me.finn.unlegitlibrary.network.system.client.NetworkClient;
+import me.finn.unlegitlibrary.network.system.packets.Packet;
 
-public class S_ClientConnectedEvent extends Event {
-    public final ClientHandler clientHandler;
+public class C_PacketReceivedEvent extends Event {
 
-    public S_ClientConnectedEvent(ClientHandler clientHandler) {
-        this.clientHandler = clientHandler;
+    public final NetworkClient client;
+    public final Packet packet;
+
+    public C_PacketReceivedEvent(NetworkClient client, Packet packet) {
+        this.client = client;
+        this.packet = packet;
     }
 
     @Override

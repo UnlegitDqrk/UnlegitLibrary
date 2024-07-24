@@ -6,16 +6,19 @@
  * See LICENSE-File if exists
  */
 
-package me.finn.unlegitlibrary.network.system.server.events.client.state;
+package me.finn.unlegitlibrary.network.system.client.events.state;
 
 import me.finn.unlegitlibrary.event.impl.Event;
-import me.finn.unlegitlibrary.network.system.server.ClientHandler;
+import me.finn.unlegitlibrary.network.system.client.NetworkClient;
 
-public class S_ClientDisconnectedEvent extends Event {
-    public final ClientHandler clientHandler;
+public class C_ReceiveThreadFailedEvent extends Event {
 
-    public S_ClientDisconnectedEvent(ClientHandler clientHandler) {
-        this.clientHandler = clientHandler;
+    public final NetworkClient client;
+    public final Exception exception;
+
+    public C_ReceiveThreadFailedEvent(NetworkClient client, Exception exception) {
+        this.client = client;
+        this.exception = exception;
     }
 
     @Override

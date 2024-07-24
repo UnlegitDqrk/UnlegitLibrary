@@ -9,56 +9,121 @@
 package me.finn.unlegitlibrary.network.system.client;
 
 import me.finn.unlegitlibrary.event.EventManager;
-import me.finn.unlegitlibrary.network.system.client.events.packets.received.C_PacketFailedReceivedEvent;
-import me.finn.unlegitlibrary.network.system.client.events.packets.received.C_PacketReceivedEvent;
-import me.finn.unlegitlibrary.network.system.client.events.packets.received.C_UnknownObjectReceivedEvent;
-import me.finn.unlegitlibrary.network.system.client.events.packets.send.C_PacketFailedSendEvent;
-import me.finn.unlegitlibrary.network.system.client.events.packets.send.C_PacketSendEvent;
+import me.finn.unlegitlibrary.network.system.client.events.received.C_PacketFailedReceivedEvent;
+import me.finn.unlegitlibrary.network.system.client.events.received.C_PacketReceivedEvent;
+import me.finn.unlegitlibrary.network.system.client.events.received.C_UnknownObjectReceivedEvent;
+import me.finn.unlegitlibrary.network.system.client.events.send.C_PacketFailedSendEvent;
+import me.finn.unlegitlibrary.network.system.client.events.send.C_PacketSendEvent;
 import me.finn.unlegitlibrary.network.system.client.events.state.C_ConnectedEvent;
 import me.finn.unlegitlibrary.network.system.client.events.state.C_DisconnectedEvent;
-import me.finn.unlegitlibrary.network.system.client.events.state.C_StoppedEvent;
+import me.finn.unlegitlibrary.network.system.client.events.state.C_ReceiveThreadFailedEvent;
 import me.finn.unlegitlibrary.network.system.packets.Packet;
 import me.finn.unlegitlibrary.network.system.packets.PacketHandler;
+import me.finn.unlegitlibrary.network.system.packets.impl.ClientDisconnectPacket;
+import me.finn.unlegitlibrary.network.system.packets.impl.ClientIDPacket;
 import me.finn.unlegitlibrary.utils.DefaultMethodsOverrider;
+import me.finn.unlegitlibrary.utils.Logger;
 
-import java.io.EOFException;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.lang.reflect.InvocationTargetException;
 import java.net.Socket;
-import java.net.SocketException;
 
 public class NetworkClient extends DefaultMethodsOverrider {
+
+    public static class ClientBuilder extends DefaultMethodsOverrider {
+        private String host;
+        private int port;
+
+        private PacketHandler packetHandler;
+        private EventManager eventManager;
+        private Logger logger;
+
+        private int maxReconnectAttempts = 0;
+        private int reconnectDelay = 3000;
+        private int timeout = 3000;
+
+        public final NetworkClient build() throws InvocationTargetException, NoSuchMethodException, InstantiationException, IllegalAccessException {
+            return new NetworkClient(host, port ,packetHandler, eventManager, logger, maxReconnectAttempts, reconnectDelay, timeout);
+        }
+
+        public final ClientBuilder setEventManager(EventManager eventManager) {
+            this.eventManager = eventManager;
+            return this;
+        }
+
+        public final ClientBuilder setHost(String host) {
+            this.host = host;
+            return this;
+        }
+
+        public final ClientBuilder setLogger(Logger logger) {
+            this.logger = logger;
+            return this;
+        }
+
+        public final ClientBuilder setMaxReconnectAttempts(int maxReconnectAttempts) {
+            this.maxReconnectAttempts = maxReconnectAttempts;
+            return this;
+        }
+
+        public final ClientBuilder setPacketHandler(PacketHandler packetHandler) {
+            this.packetHandler = packetHandler;
+            return this;
+        }
+
+        public final ClientBuilder setPort(int port) {
+            this.port = port;
+            return this;
+        }
+
+        public final ClientBuilder setReconnectDelay(int reconnectDelay) {
+            this.reconnectDelay = reconnectDelay;
+            return this;
+        }
+
+        public final ClientBuilder setTimeout(int timeout) {
+            this.timeout = timeout;
+            return this;
+        }
+    }
 
     private final String host;
     private final int port;
 
     private final PacketHandler packetHandler;
     private final EventManager eventManager;
+    private final Logger logger;
 
-    private final boolean debugLog;
-    private final int maxAttempts;
-    private final int attemptDelayInSec;
+    private int currentAttempts;
+    private final int maxReconnectAttempts;
+    private final int reconnectDelay;
 
     private Socket socket;
-    private ObjectOutputStream objectOutputStream;
-    private ObjectInputStream objectInputStream;
+    private int timeout;
+    private ObjectOutputStream outputStream;
+    private ObjectInputStream inputStream;
     private int clientID = -1;
-    private int attempt = 1;
-    private boolean needClientID = false;
-    private final Thread receiveThread = new Thread(this::receive);
+    public final Thread receiveThread = new Thread(this::receive);
 
-    private NetworkClient(String host, int port, PacketHandler packetHandler, EventManager eventManager, boolean debugLog, int maxAttempts, int attemptDelayInSec) {
+    private NetworkClient(String host, int port, PacketHandler packetHandler, EventManager eventManager, Logger logger, int reconnectAttempts, int reconnectDelay, int timeout) throws InvocationTargetException, NoSuchMethodException, InstantiationException, IllegalAccessException {
         this.host = host;
         this.port = port;
+        this.clientID = -1;
+        this.timeout = timeout;
 
         this.packetHandler = packetHandler;
         this.eventManager = eventManager;
-        this.debugLog = debugLog;
+        this.logger = logger;
 
-        this.maxAttempts = maxAttempts;
-        this.attemptDelayInSec = attemptDelayInSec;
-        this.attempt = 1;
+        this.maxReconnectAttempts = reconnectAttempts;
+        this.reconnectDelay = reconnectDelay;
+        this.currentAttempts = 0;
+
+        this.packetHandler.setClientInstance(this);
+        this.packetHandler.registerPacket(ClientDisconnectPacket.class);
+        this.packetHandler.registerPacket(ClientIDPacket.class);
     }
 
     public final int getClientID() {
@@ -69,40 +134,36 @@ public class NetworkClient extends DefaultMethodsOverrider {
         return socket;
     }
 
-    public final ObjectOutputStream getObjectOutputStream() {
-        return objectOutputStream;
-    }
-
-    public final ObjectInputStream getObjectInputStream() {
-        return objectInputStream;
-    }
-
-    public final boolean isDebugLogEnabled() {
-        return debugLog;
-    }
-
-    public final boolean isAutoReconnectEnabled() {
-        return maxAttempts != 0;
-    }
-
-    public final PacketHandler getPacketHandler() {
-        return packetHandler;
-    }
-
-    public final boolean isNeedClientID() {
-        return needClientID;
-    }
-
-    public final int getPort() {
-        return port;
+    public final EventManager getEventManager() {
+        return eventManager;
     }
 
     public final String getHost() {
         return host;
     }
 
-    public final Thread getReceiveThread() {
-        return receiveThread;
+    public final int getPort() {
+        return port;
+    }
+
+    public final ObjectInputStream getInputStream() {
+        return inputStream;
+    }
+
+    public final ObjectOutputStream getOutputStream() {
+        return outputStream;
+    }
+
+    public final PacketHandler getPacketHandler() {
+        return packetHandler;
+    }
+
+    public final boolean isAutoReconnectEnabled() {
+        return maxReconnectAttempts != 0;
+    }
+
+    public final Logger getLogger() {
+        return logger;
     }
 
     public final boolean isConnected() {
@@ -110,236 +171,144 @@ public class NetworkClient extends DefaultMethodsOverrider {
                 && receiveThread.isAlive() && !receiveThread.isInterrupted();
     }
 
-    public synchronized final void connect() throws IOException, InterruptedException {
-        try {
-            if (isConnected()) return;
-            if (debugLog) System.out.println("Connecting to server...");
+    public final Thread getReceiveThread() {
+        return receiveThread;
+    }
 
-            socket = new Socket(host, port);
-            socket.setTcpNoDelay(false);
-
-            objectOutputStream = new ObjectOutputStream(socket.getOutputStream());
-            objectInputStream = new ObjectInputStream(socket.getInputStream());
-
-            needClientID = true;
-            receiveThread.start();
-
-            objectOutputStream.writeObject("c2s_connect");
-            objectOutputStream.writeObject(clientID);
-            objectOutputStream.flush();
-
-            attempt = 1;
-            if (debugLog) System.out.println("Connected to Server. Attempts: " + attempt);
-        } catch (SocketException exception) {
-            if (isAutoReconnectEnabled()) reconnect();
-            else if (!receiveThread.isInterrupted()) throw exception;
+    public final void setClientID(int clientID) {
+        if (this.clientID == -1) {
+            this.clientID = clientID;
+            eventManager.executeEvent(new C_ConnectedEvent(this));
         }
     }
 
-    public final EventManager getEventManager() {
-        return eventManager;
-    }
+    public synchronized boolean disconnect(boolean sendDisconnectPacket) {
+        if (logger == null) System.out.println("Disconnecting from server...");
+        else logger.info("Disconnecting from server...");
 
-    public synchronized final void disconnect() throws IOException {
-        if (debugLog) System.out.println("Disconnecting from server...");
-
-        if (isConnected()) {
-            objectOutputStream.writeObject("c2s_disconnect");
-            objectOutputStream.writeObject(clientID);
-            objectOutputStream.flush();
-        }
-
-        eventManager.executeEvent(new C_DisconnectedEvent(this));
-        if (debugLog) System.out.println("Disconnected from server.");
-        stop();
-    }
-
-    private synchronized final void stop() throws IOException {
-        if (debugLog) System.out.println("Stopping client...");
-
-        if (isConnected()) {
-            objectOutputStream.close();
-            objectInputStream.close();
-            socket.close();
-        }
-
-        objectOutputStream = null;
-        objectInputStream = null;
-        socket = null;
-
-        needClientID = false;
-        clientID = -1;
-        attempt = 1;
         receiveThread.interrupt();
 
-        eventManager.executeEvent(new C_StoppedEvent(this));
-        if (debugLog) System.out.println("Client stopped.");
-    }
+        if (isConnected()) {
+            if (sendDisconnectPacket) sendPacket(new ClientDisconnectPacket(clientID, true));
 
-    public final boolean sendPacket(Packet packet) throws IOException, ClassNotFoundException {
-        if (!isConnected()) return false;
-
-        if (packetHandler.sendPacket(packet, objectOutputStream)) {
-            eventManager.executeEvent(new C_PacketSendEvent(this, packet));
-            return true;
-        } else {
-            eventManager.executeEvent(new C_PacketFailedSendEvent(this, packet));
-            return false;
+            try {
+                outputStream.close();
+                inputStream.close();
+                socket.close();
+            } catch (IOException exception) {
+                if (logger == null) System.err.println("Failed to close socket: " + exception.getMessage());
+                else logger.exception("Failed to close socket", exception);
+            }
         }
+
+        outputStream = null;
+        inputStream = null;
+        socket = null;
+
+        clientID = -1;
+        currentAttempts = 0;
+
+        eventManager.executeEvent(new C_DisconnectedEvent(this));
+        if (logger == null) System.out.println("Disconnected from server");
+        else logger.info("Disconnected from server...");
+
+        if (maxReconnectAttempts != 0) {
+            try {
+                Thread.sleep(reconnectDelay);
+            } catch (InterruptedException sleepThreadException) {
+                if (logger == null) System.err.println("Reconnect exception: " + sleepThreadException.getMessage());
+                else logger.exception("Reconnect exception", sleepThreadException);
+            }
+
+            currentAttempts++;
+            if (currentAttempts <= maxReconnectAttempts || maxReconnectAttempts < 0) return connect();
+        }
+
+        return true;
     }
 
-    private final void receive() {
+    public synchronized final boolean connect() {
+        if (isConnected()) return false;
+
+        if (logger == null) System.out.println("Trying to connect to " + host + ":" + port);
+        else logger.info("Trying to connect to " + host + ":" + port);
 
         try {
-            if (!isConnected()) return;
-            String command = "";
+            socket = new Socket(host, port);
+            socket.setTcpNoDelay(true);
+            socket.setSoTimeout(timeout);
 
-            while (isConnected()) {
-                Object received = objectInputStream.readObject();
+            outputStream = new ObjectOutputStream(socket.getOutputStream());
+            inputStream = new ObjectInputStream(socket.getInputStream());
 
-                if (received instanceof String) {
-                    command = (String) received;
-                    continue;
+            receiveThread.start();
+
+            if (currentAttempts == 0) currentAttempts++;
+            if (logger == null) System.out.println("Connected to " + host + ":" + port + " (Attempts: " + currentAttempts + ")");
+            else logger.info("Connected to " + host + ":" + port + " (Attempts: " + currentAttempts + ")");
+
+            currentAttempts = 0;
+            return true;
+        } catch (IOException exception) {
+            if (maxReconnectAttempts != 0) {
+                try {
+                    Thread.sleep(reconnectDelay);
+                } catch (InterruptedException sleepThreadException) {
+                    if (logger == null) System.err.println("Reconnect exception: " + sleepThreadException.getMessage());
+                    else logger.exception("Reconnect exception", sleepThreadException);
                 }
+
+                currentAttempts++;
+                if (currentAttempts <= maxReconnectAttempts || maxReconnectAttempts < 0) return connect();
+            }
+
+            if (logger == null) System.err.println("Failed to connect to " + host + ":" + port + ": " + exception.getMessage());
+            else logger.exception("Failed to connect to " + host + ":" + port, exception);
+        }
+
+        return false;
+    }
+
+    public final boolean sendPacket(Packet packet) {
+        if (!isConnected()) return false;
+
+        try {
+            if (packetHandler.sendPacket(packet, outputStream)) {
+                eventManager.executeEvent(new C_PacketSendEvent(this, packet));
+                return true;
+            } else eventManager.executeEvent(new C_PacketFailedSendEvent(this, packet, null));
+        } catch (IOException | ClassNotFoundException exception) {
+            if (logger == null) System.err.println("Failed to send packet: " + exception.getMessage());
+            else logger.exception("Failed to connect to send packet", exception);
+
+            eventManager.executeEvent(new C_PacketFailedSendEvent(this, packet, exception));
+        }
+
+        return false;
+    }
+
+    private void receive() {
+        if (!isConnected()) return;
+
+        while (isConnected()) {
+            try {
+                Object received = inputStream.readObject();
 
                 if (received instanceof Integer) {
                     int id = (Integer) received;
-                    if (command.equalsIgnoreCase("s2c_connect")) {
-                        clientID = id;
-                        command = "";
+                    Packet packet = packetHandler.getPacketByID(id);
+                    if (packetHandler.handlePacket(id, packet, inputStream))
+                        eventManager.executeEvent(new C_PacketReceivedEvent(this, packet));
+                    else eventManager.executeEvent(new C_PacketFailedReceivedEvent(this, packet, null));
+                } else eventManager.executeEvent(new C_UnknownObjectReceivedEvent(this, received));
+            } catch (IOException | ClassNotFoundException exception) {
+                if (logger == null) System.err.println("Receive thread failed: " + exception.getMessage());
+                else logger.exception("Receive thread failed", exception);
 
-                        eventManager.executeEvent(new C_ConnectedEvent(this));
-                        continue;
-                    } else if (command.equalsIgnoreCase("s2c_disconnect")) {
-                        if (clientID != id) continue;
-                        eventManager.executeEvent(new C_DisconnectedEvent(this));
-                        command = "";
-
-                        stop();
-                        break;
-                    } else if (packetHandler.getPacketByID(id) != null) {
-                        command = "";
-                        Packet packet = packetHandler.getPacketByID(id);
-
-                        if (packetHandler.handlePacket(id, packet, objectInputStream))
-                            eventManager.executeEvent(new C_PacketReceivedEvent(this, packet));
-                        else eventManager.executeEvent(new C_PacketFailedReceivedEvent(this, packet));
-
-                        continue;
-                    }
-                }
-
-                eventManager.executeEvent(new C_UnknownObjectReceivedEvent(this, received));
-            }
-        } catch (EOFException exception) {
-            attempt = 1;
-            if (isAutoReconnectEnabled()) reconnect();
-            else if (!receiveThread.isInterrupted()) {
-                try {
-                    stop();
-                } catch (IOException exception1) {
-                    exception.printStackTrace();
-                    exception1.printStackTrace();
-                }
-            }
-        } catch (ClassNotFoundException exception) {
-            exception.printStackTrace();
-        } catch (IOException exception) {
-            eventManager.executeEvent(new C_StoppedEvent(this));
-            if (!receiveThread.isInterrupted()) {
-                try {
-                    stop();
-                } catch (IOException exception1) {
-                    exception.printStackTrace();
-                    exception1.printStackTrace();
-                }
+                eventManager.executeEvent(new C_ReceiveThreadFailedEvent(this, exception));
             }
         }
-    }
 
-    private final void reconnect() {
-        if (isAutoReconnectEnabled()) {
-            if (isConnected()) {
-                try {
-                    disconnect();
-                } catch (IOException exception) {
-                    if (maxAttempts > 0 && attempt > maxAttempts) {
-                        eventManager.executeEvent(new C_StoppedEvent(this));
-                        if (!receiveThread.isInterrupted()) exception.printStackTrace();
-                        return;
-                    }
-                }
-            }
-
-            if (debugLog) System.out.println("Trying to reconnect... (Attempt: " + attempt++ + ")");
-
-            try {
-                Thread.sleep(attemptDelayInSec * 1000L);
-                connect();
-            } catch (InterruptedException | IOException exception) {
-                if (maxAttempts == -1) reconnect();
-                else if (attempt <= maxAttempts) reconnect();
-                else {
-                    eventManager.executeEvent(new C_StoppedEvent(this));
-                    if (!receiveThread.isInterrupted()) exception.printStackTrace();
-                }
-            }
-        } else {
-            try {
-                stop();
-            } catch (IOException exception) {
-                eventManager.executeEvent(new C_StoppedEvent(this));
-                if (!receiveThread.isInterrupted()) exception.printStackTrace();
-            }
-        }
-    }
-
-    public static class ClientBuilder {
-        private int port;
-        private String host;
-        private PacketHandler packetHandler = new PacketHandler();
-        private EventManager eventManager = new EventManager();
-        private boolean debugLog = false;
-        private int maxAttempts = 0;
-        private int attemptDelayInSec = 1;
-
-        public final ClientBuilder enableDebugLog() {
-            this.debugLog = true;
-            return this;
-        }
-
-        public final ClientBuilder setEventManager(EventManager eventManager) {
-            this.eventManager = eventManager;
-            return this;
-        }
-
-        public final ClientBuilder setPort(int port) {
-            this.port = port;
-            return this;
-        }
-
-        public final ClientBuilder setHost(String host) {
-            this.host = host;
-            return this;
-        }
-
-        public final ClientBuilder setPacketHandler(PacketHandler packetHandler) {
-            this.packetHandler = packetHandler;
-            return this;
-        }
-
-        public final ClientBuilder setAttemptDelayInSeconds(int attemptDelayInSec) {
-            this.attemptDelayInSec = attemptDelayInSec;
-            return this;
-        }
-
-        public final ClientBuilder setMaxAttempts(int maxAttempts) {
-            this.maxAttempts = maxAttempts;
-            return this;
-        }
-
-        public final NetworkClient build() {
-            return new NetworkClient(host, port, packetHandler, eventManager, debugLog, maxAttempts, attemptDelayInSec);
-        }
+        disconnect(false);
     }
 }

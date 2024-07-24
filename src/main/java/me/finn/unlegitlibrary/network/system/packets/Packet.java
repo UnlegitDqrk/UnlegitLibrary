@@ -6,6 +6,14 @@
  * See LICENSE-File if exists
  */
 
+/*
+ * Copyright (C) 2024 UnlegitDqrk - All Rights Reserved
+ *
+ * You are unauthorized to remove this copyright.
+ * You have to give Credits to the Author in your project and link this GitHub site: https://github.com/UnlegitDqrk
+ * See LICENSE-File if exists
+ */
+
 package me.finn.unlegitlibrary.network.system.packets;
 
 import java.io.IOException;
@@ -24,8 +32,8 @@ public abstract class Packet {
         return id;
     }
 
-    public abstract void write(ObjectOutputStream outputStream) throws IOException, ClassNotFoundException;
+    public abstract void write(PacketHandler packetHandler, ObjectOutputStream outputStream) throws IOException, ClassNotFoundException;
 
-    public abstract void read(ObjectInputStream outputStream) throws IOException, ClassNotFoundException;
+    public abstract void read(PacketHandler packetHandler, ObjectInputStream outputStream) throws IOException, ClassNotFoundException;
 }
 

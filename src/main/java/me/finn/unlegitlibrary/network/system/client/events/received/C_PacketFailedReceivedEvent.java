@@ -6,7 +6,7 @@
  * See LICENSE-File if exists
  */
 
-package me.finn.unlegitlibrary.network.system.client.events.packets.received;
+package me.finn.unlegitlibrary.network.system.client.events.received;
 
 import me.finn.unlegitlibrary.event.impl.Event;
 import me.finn.unlegitlibrary.network.system.client.NetworkClient;
@@ -14,12 +14,14 @@ import me.finn.unlegitlibrary.network.system.packets.Packet;
 
 public class C_PacketFailedReceivedEvent extends Event {
 
-    public final NetworkClient networkClient;
+    public final NetworkClient client;
     public final Packet packet;
+    public final Exception exception;
 
-    public C_PacketFailedReceivedEvent(NetworkClient networkClient, Packet packet) {
-        this.networkClient = networkClient;
+    public C_PacketFailedReceivedEvent(NetworkClient client, Packet packet, Exception exception) {
+        this.client = client;
         this.packet = packet;
+        this.exception = exception;
     }
 
     @Override
