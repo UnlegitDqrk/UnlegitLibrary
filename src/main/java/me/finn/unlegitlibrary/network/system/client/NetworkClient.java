@@ -29,6 +29,7 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.lang.reflect.InvocationTargetException;
 import java.net.Socket;
+import java.net.SocketException;
 
 public class NetworkClient extends DefaultMethodsOverrider {
 
@@ -42,7 +43,7 @@ public class NetworkClient extends DefaultMethodsOverrider {
 
         private int maxReconnectAttempts = 0;
         private int reconnectDelay = 3000;
-        private int timeout = 3000;
+        private int timeout = 0;
 
         public final NetworkClient build() throws InvocationTargetException, NoSuchMethodException, InstantiationException, IllegalAccessException {
             return new NetworkClient(host, port ,packetHandler, eventManager, logger, maxReconnectAttempts, reconnectDelay, timeout);
@@ -210,7 +211,7 @@ public class NetworkClient extends DefaultMethodsOverrider {
 
         eventManager.executeEvent(new C_DisconnectedEvent(this));
         if (logger == null) System.out.println("Disconnected from server");
-        else logger.info("Disconnected from server...");
+        else logger.info("Disconnected from serverß");
 
         if (maxReconnectAttempts != 0) {
             try {
@@ -230,8 +231,8 @@ public class NetworkClient extends DefaultMethodsOverrider {
     public synchronized final boolean connect() {
         if (isConnected()) return false;
 
-        if (logger == null) System.out.println("Trying to connect to " + host + ":" + port);
-        else logger.info("Trying to connect to " + host + ":" + port);
+        if (logger == null) System.out.println("Trying to connect to " + host + ":" + port + "...");
+        else logger.info("Trying to connect to " + host + ":" + port + "...");
 
         try {
             socket = new Socket(host, port);
@@ -301,7 +302,11 @@ public class NetworkClient extends DefaultMethodsOverrider {
                         eventManager.executeEvent(new C_PacketReceivedEvent(this, packet));
                     else eventManager.executeEvent(new C_PacketFailedReceivedEvent(this, packet, null));
                 } else eventManager.executeEvent(new C_UnknownObjectReceivedEvent(this, received));
+            } catch (SocketException ignored) {
+                disconnect(false);
+                return;
             } catch (IOException | ClassNotFoundException exception) {
+                exception.printStackTrace();
                 if (logger == null) System.err.println("Receive thread failed: " + exception.getMessage());
                 else logger.exception("Receive thread failed", exception);
 

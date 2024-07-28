@@ -40,7 +40,7 @@ public class NetworkServer extends DefaultMethodsOverrider {
 
         private int maxRestartAttempts = 0;
         private int restartDelay = 3000;
-        private int timeout = 3000;
+        private int timeout = 0;
 
         public final NetworkServer build() throws InvocationTargetException, NoSuchMethodException, InstantiationException, IllegalAccessException {
             return new NetworkServer(port, packetHandler, eventManager, logger, maxRestartAttempts, restartDelay, timeout);
@@ -156,8 +156,8 @@ public class NetworkServer extends DefaultMethodsOverrider {
     public synchronized final boolean stop() {
         if (!isRunning()) return false;
 
-        if (logger == null) System.out.println("Trying to stop server");
-        else logger.info("Trying to stop server");
+        if (logger == null) System.out.println("Trying to stop server...");
+        else logger.info("Trying to stop server...");
 
         new ArrayList<>(connectionHandlers).forEach(connectionHandler -> connectionHandler.disconnect(true));
         connectionHandlers.clear();
@@ -176,8 +176,8 @@ public class NetworkServer extends DefaultMethodsOverrider {
     public synchronized final boolean start() {
         if (isRunning()) return false;
 
-        if (logger == null) System.out.println("Trying to start on port " + port);
-        else logger.info("Trying to start on port " + port);
+        if (logger == null) System.out.println("Trying to start on port " + port + "...");
+        else logger.info("Trying to start on port " + port + "...");
 
         try {
             serverSocket = new ServerSocket(port);
@@ -186,7 +186,7 @@ public class NetworkServer extends DefaultMethodsOverrider {
             incomingConnectionThread.start();
 
             if (currentAttempts == 0) currentAttempts++;
-            if (logger == null) System.out.println("Started ad port" + port + " (Attempts: " + currentAttempts + ")");
+            if (logger == null) System.out.println("Started at port " + port + " (Attempts: " + currentAttempts + ")");
             else logger.info("Started at port " + port + " (Attempts: " + currentAttempts + ")");
 
             currentAttempts = 0;

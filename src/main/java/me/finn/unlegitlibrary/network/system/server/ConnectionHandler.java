@@ -24,6 +24,7 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
+import java.net.SocketException;
 
 public class ConnectionHandler {
 
@@ -89,8 +90,8 @@ public class ConnectionHandler {
     }
 
     public synchronized boolean disconnect(boolean sendDisconnectPacket) {
-        if (server.getLogger() == null) System.out.println("Disconnecting from server...");
-        else server.getLogger().info("Disconnecting from server...");
+        if (server.getLogger() == null) System.out.println("Client ID '" + clientID + "' is disconnecting from server...");
+        else server.getLogger().info("Client ID '" + clientID + "' is disconnecting from server...");
 
         receiveThread.interrupt();
 
@@ -102,8 +103,8 @@ public class ConnectionHandler {
                 inputStream.close();
                 socket.close();
             } catch (IOException exception) {
-                if (server.getLogger() == null) System.err.println("Failed to close socket: " + exception.getMessage());
-                else server.getLogger().exception("Failed to close socket", exception);
+                if (server.getLogger() == null) System.err.println("Client ID '" + clientID + "' failed to close socket: " + exception.getMessage());
+                else server.getLogger().exception("Client ID '" + clientID + "' failed to close socket", exception);
             }
         }
 
@@ -115,8 +116,8 @@ public class ConnectionHandler {
         clientID = -1;
 
         server.getEventManager().executeEvent(new S_ConnectionHandlerDisconnectedEvent(this));
-        if (server.getLogger() == null) System.out.println("Disconnected from server");
-        else server.getLogger().info("Disconnected from server...");
+        if (server.getLogger() == null) System.out.println("Client ID '" + clientID + "' disconnected from server");
+        else server.getLogger().info("Client ID '" + clientID + "' disconnected from server");
 
         return true;
     }
@@ -135,9 +136,12 @@ public class ConnectionHandler {
                         server.getEventManager().executeEvent(new S_PacketReceivedEvent(this, packet));
                     else server.getEventManager().executeEvent(new S_PacketFailedReceivedEvent(this, packet, null));
                 } else server.getEventManager().executeEvent(new S_UnknownObjectReceivedEvent(this, received));
+            } catch (SocketException ignored) {
+                disconnect(false);
+                return;
             } catch (IOException | ClassNotFoundException exception) {
-                if (server.getLogger() == null) System.err.println("Receive thread failed: " + exception.getMessage());
-                else server.getLogger().exception("Receive thread failed", exception);
+                if (server.getLogger() == null) System.err.println("Client ID '" + clientID + "' received thread failed: " + exception.getMessage());
+                else server.getLogger().exception("Client ID '" + clientID + "' received thread failed", exception);
 
                 server.getEventManager().executeEvent(new S_ReceiveThreadFailedEvent(this, exception));
             }
