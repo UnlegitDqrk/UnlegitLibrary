@@ -98,7 +98,7 @@ public class NetworkServer extends DefaultMethodsOverrider {
 
     private ServerSocket serverSocket;
 
-    public NetworkServer(int port, PacketHandler packetHandler, EventManager eventManager, Logger logger, int maxRestartAttempts, int restartDelay, int timeout) throws InvocationTargetException, NoSuchMethodException, InstantiationException, IllegalAccessException {
+    private NetworkServer(int port, PacketHandler packetHandler, EventManager eventManager, Logger logger, int maxRestartAttempts, int restartDelay, int timeout) throws InvocationTargetException, NoSuchMethodException, InstantiationException, IllegalAccessException {
         this.port = port;
         this.timeout = timeout;
 
@@ -149,7 +149,8 @@ public class NetworkServer extends DefaultMethodsOverrider {
     }
 
     public final ConnectionHandler getConnectionHandlerByID(int clientID) {
-        return connectionHandlers.get(clientID);
+        for (ConnectionHandler connectionHandler : connectionHandlers) if (connectionHandler.getClientID() == clientID) return connectionHandler;
+        return null;
     }
 
     public synchronized final boolean stop() {
