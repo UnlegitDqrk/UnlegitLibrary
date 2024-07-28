@@ -306,7 +306,6 @@ public class NetworkClient extends DefaultMethodsOverrider {
                 disconnect(false);
                 return;
             } catch (IOException | ClassNotFoundException exception) {
-                exception.printStackTrace();
                 if (logger == null) System.err.println("Receive thread failed: " + exception.getMessage());
                 else logger.exception("Receive thread failed", exception);
 
