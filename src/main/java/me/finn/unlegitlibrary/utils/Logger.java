@@ -5,6 +5,8 @@ import me.finn.unlegitlibrary.string.color.ConsoleColor;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
@@ -51,15 +53,15 @@ public final class Logger {
         // Backup latest log file to current date and time
         File backupLogFile = new File(logFolder, "log-" + timeStamp + ".txt");
         backupLogFile.createNewFile();
-        FileUtils.copyFile(latestLogFile, backupLogFile, true);
-        FileUtils.writeFile(backupLogFile, FileUtils.readFile(latestLogFile));
+        Files.copy(latestLogFile.toPath(), backupLogFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+        FileUtils.writeFile(backupLogFile, FileUtils.readFileFull(latestLogFile));
 
         isInitialized = false;
     }
 
     private final void writeToLog(String log) throws IOException {
         if (isInitialized)
-            FileUtils.writeFile(latestLogFile, FileUtils.readFile(latestLogFile) + System.lineSeparator() + log);
+            FileUtils.writeFile(latestLogFile, FileUtils.readFileFull(latestLogFile) + System.lineSeparator() + log);
     }
 
     public final void log(String string) {
