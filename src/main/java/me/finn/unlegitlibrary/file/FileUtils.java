@@ -14,6 +14,8 @@ import java.io.*;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.stream.Stream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
@@ -40,6 +42,7 @@ public class FileUtils extends DefaultMethodsOverrider {
         return splitName[splitName.length - 2];
     }
 
+    @Deprecated
     public static void copyResourceToFile(String resourceName, File targetFile, Class resourceClass) throws IOException {
         InputStream inputStream = resourceClass.getResourceAsStream("/" + resourceName);
         OutputStream outputStream = new FileOutputStream(targetFile);
@@ -89,17 +92,17 @@ public class FileUtils extends DefaultMethodsOverrider {
         bis.close();
     }
 
-    public static boolean isEmpty(Path path) throws IOException {
-        if (Files.isDirectory(path)) {
-            try (Stream<Path> entries = Files.list(path)) {
+    public static boolean isEmpty(File file) throws IOException {
+        if (file.isDirectory()) {
+            try (Stream<Path> entries = Files.list(file.toPath())) {
                 return !entries.findFirst().isPresent();
             }
-        }
+        } else if (file.isFile()) return file.length() == 0;
 
         return false;
     }
 
-    public static String readFile(File file) throws IOException {
+    public static String readFileFull(File file) throws IOException {
         Long length = file.length();
         byte[] content = new byte[length.intValue()];
 
@@ -110,42 +113,12 @@ public class FileUtils extends DefaultMethodsOverrider {
         return new String(content, StandardCharsets.UTF_8);
     }
 
-    public static void copyFile(File sourceFile, File toFolder, boolean replaceExisting) throws IOException {
-        // Check if the source file exists and is a regular file
-        if (!sourceFile.exists() || !sourceFile.isFile()) return;
-
-        // Check if the destination folder exists and is a directory
-        if (!toFolder.exists() || !toFolder.isDirectory()) return;
-
-        // Get the name of the source file
-        String fileName = sourceFile.getName();
-        File destinationFile = new File(toFolder, fileName);
-
-
-        if (replaceExisting)
-            Files.copy(sourceFile.toPath(), destinationFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
-        else Files.copy(sourceFile.toPath(), destinationFile.toPath());
-    }
-
-    public static void copyFiles(File fromFolder, File toFolder, boolean replaceExisting) throws IOException {
-        // Check if the source directory exists and is a directory
-        if (!fromFolder.exists() || !fromFolder.isDirectory()) return;
-
-        // Check if the destination directory exists and is a directory
-        if (!toFolder.exists() || !toFolder.isDirectory()) return;
-
-        // List all files in the source directory
-        File[] filesToCopy = fromFolder.listFiles();
-        if (filesToCopy == null) return;
-
-        // Iterate through the files and copy them to the destination directory
-        for (File file : filesToCopy) {
-            Path source = file.toPath();
-            Path destination = new File(toFolder, file.getName()).toPath();
-
-            if (replaceExisting) Files.copy(source, destination, StandardCopyOption.REPLACE_EXISTING);
-            else Files.copy(source, destination);
-        }
+    public static List<String> readFileLines(File file) throws IOException {
+        List<String> lines = new ArrayList<>();
+        BufferedReader in = new BufferedReader(new InputStreamReader(new FileInputStream(file), "UTF8"));
+        String str;
+        while ((str = in.readLine()) != null) lines.add(str);
+        return lines;
     }
 
     public static void writeFile(File file, String text) throws IOException {
@@ -163,5 +136,4 @@ public class FileUtils extends DefaultMethodsOverrider {
         if (!file.isHidden()) return;
         Files.setAttribute(Paths.get(file.getPath()), "dos:hidden", false, LinkOption.NOFOLLOW_LINKS);
     }
-
 }
