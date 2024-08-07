@@ -39,7 +39,7 @@ public class StringUtils extends DefaultMethodsOverrider {
     }
 
     public static boolean isEmptyString(String string) {
-        return string == null || string.isEmpty() || string.isBlank() || string.equalsIgnoreCase(" ");
+        return string == null || string.isEmpty() || string.trim().isEmpty() || string.equalsIgnoreCase(" ");
     }
 
     public static String[] removeEmptyStringsExceptWhitespace(String[] strings) {
@@ -55,6 +55,6 @@ public class StringUtils extends DefaultMethodsOverrider {
 
     public static boolean isEmptyStringExceptWhitespace(String string) {
         if (string == null) return true;
-        return (string.isEmpty() || string.isBlank()) && !string.equalsIgnoreCase(" ");
+        return (string.isEmpty() || string.trim().isEmpty()) && !string.equalsIgnoreCase(" ");
     }
 }
