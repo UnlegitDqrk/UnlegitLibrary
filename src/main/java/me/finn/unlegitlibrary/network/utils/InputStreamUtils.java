@@ -46,12 +46,14 @@ public class InputStreamUtils extends DefaultMethodsOverrider {
         byte[] buffer = new byte[1024];
         int length;
 
-        while ((length = inputStream.read(buffer)) != -1) byteArrayOutputStream.write(buffer, 0, length);
+        while ((length = inputStream.read(buffer)) != -1) {
+            byteArrayOutputStream.write(buffer, 0, length);
+        }
 
         byteArrayOutputStream.close();
         inputStream.close();
 
-        return byteArrayOutputStream.toString(StandardCharsets.UTF_8);
+        return new String(byteArrayOutputStream.toByteArray(), StandardCharsets.UTF_8);
     }
 
     public static void downloadFile(String urlStr, File outputFile) throws IOException {
