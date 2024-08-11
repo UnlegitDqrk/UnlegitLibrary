@@ -3,12 +3,22 @@ package me.finn.unlegitlibrary.utils;
 import me.finn.unlegitlibrary.file.FileUtils;
 import me.finn.unlegitlibrary.string.color.ConsoleColor;
 
-import java.io.File;
-import java.io.IOException;
+import java.awt.*;
+import java.awt.datatransfer.Clipboard;
+import java.awt.datatransfer.DataFlavor;
+import java.awt.datatransfer.Transferable;
+import java.awt.datatransfer.UnsupportedFlavorException;
+import java.awt.event.ActionListener;
+import java.io.*;
+import java.lang.reflect.Field;
+import java.lang.System;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.text.SimpleDateFormat;
-import java.util.Date;
+import java.util.*;
+import java.util.logging.Level;
 
 /**
  * Logger by shock9 Interactive
@@ -17,9 +27,16 @@ public final class Logger {
     private File logFolder;
     private File latestLogFile;
 
-    private static boolean isInitialized = false;
+    private boolean isInitialized = false;
 
-    public Logger(File logFolder) throws IOException {
+    public Logger(File logFolder, boolean addShutdownHook) throws IOException, NoSuchFieldException, IllegalAccessException {
+        Field field = Charset.class.getDeclaredField("defaultCharset");
+        field.setAccessible(true);
+        field.set(null, StandardCharsets.UTF_8);
+
+        System.setProperty("client.encoding.override", "UTF-8");
+        System.setProperty("file.encoding", "UTF-8");
+
         // Basic setup for log folder and latest log file
         this.logFolder = logFolder;
         latestLogFile = new File(logFolder, "log-latest.txt");
@@ -29,15 +46,17 @@ public final class Logger {
         if (latestLogFile.exists()) latestLogFile.delete();
         latestLogFile.createNewFile();
 
-        isInitialized = true;
+        if (addShutdownHook) {
+            Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+                try {
+                    shutdown();
+                } catch (IOException exception) {
+                    exception("Failed to shutdown logger", exception);
+                }
+            }));
+        }
 
-        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-            try {
-                shutdown();
-            } catch (IOException exception) {
-                exception("Failed to shutdown logger", exception);
-            }
-        }));
+        isInitialized = true;
     }
 
     // Renaming latest log to current date and yeah
@@ -144,8 +163,16 @@ public final class Logger {
 
         String timeStamp = formatter.format(date);
 
+        StringWriter sw = new StringWriter();
+        PrintWriter pw = new PrintWriter(sw);
+        exception.printStackTrace(pw);
+        String stackTrace = sw.toString();
+
         // Writing log
-        String log = timeStamp + " [EXCEPTION-INFO] " + infoLine + System.lineSeparator() + timeStamp + " [EXCEPTION-MESSAGE] " + exception.getMessage();
+        String log =
+                timeStamp + " [EXCEPTION-INFO] " + infoLine + System.lineSeparator() +
+                timeStamp + " [EXCEPTION-MESSAGE] " + exception.getMessage() + System.lineSeparator() +
+                timeStamp + " [EXCEPTION-STACKTRACE] " + stackTrace;
 
         System.out.println(ConsoleColor.RED + log + ConsoleColor.RESET);
 
