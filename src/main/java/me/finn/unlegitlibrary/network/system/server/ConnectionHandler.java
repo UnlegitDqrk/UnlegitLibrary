@@ -47,7 +47,6 @@ public class ConnectionHandler {
         receiveThread.start();
 
         sendPacket(new ClientIDPacket(clientID));
-        server.getEventManager().executeEvent(new S_ConnectionHandlerConnectedEvent(this));
     }
 
     public final int getClientID() {

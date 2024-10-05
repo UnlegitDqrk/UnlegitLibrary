@@ -14,6 +14,7 @@ import me.finn.unlegitlibrary.network.system.packets.impl.ClientDisconnectPacket
 import me.finn.unlegitlibrary.network.system.packets.impl.ClientIDPacket;
 import me.finn.unlegitlibrary.network.system.server.events.connection.S_IncomingConnectionEvent;
 import me.finn.unlegitlibrary.network.system.server.events.connection.S_IncomingConnectionThreadFailedEvent;
+import me.finn.unlegitlibrary.network.system.server.events.state.connection.S_ConnectionHandlerConnectedEvent;
 import me.finn.unlegitlibrary.network.system.server.events.state.server.S_StartedEvent;
 import me.finn.unlegitlibrary.network.system.server.events.state.server.S_StoppedEvent;
 import me.finn.unlegitlibrary.network.system.packets.Packet;
@@ -243,8 +244,17 @@ public class NetworkServer extends DefaultMethodsOverrider {
                 if (logger == null) System.out.println("Accepted connection from " + socket.getRemoteSocketAddress());
                 else logger.info("Accepted connection from " + socket.getRemoteSocketAddress());
 
-                eventManager.executeEvent(new S_IncomingConnectionEvent(this, socket));
-                connectionHandlers.add(new ConnectionHandler(this, socket, connectionHandlers.size() + 1));
+                S_IncomingConnectionEvent incomingConnectionEvent = new S_IncomingConnectionEvent(this, socket);
+                eventManager.executeEvent(incomingConnectionEvent);
+
+                if (incomingConnectionEvent.isCancelled()) {
+                    socket.close();
+                    continue;
+                }
+
+                ConnectionHandler connectionHandler = new ConnectionHandler(this, socket, connectionHandlers.size() + 1);
+                connectionHandlers.add(connectionHandler);
+                eventManager.executeEvent(new S_ConnectionHandlerConnectedEvent(connectionHandler));
             }
         } catch (IOException exception) {
             if (logger == null) System.err.println("Accept exception: " + exception.getMessage());

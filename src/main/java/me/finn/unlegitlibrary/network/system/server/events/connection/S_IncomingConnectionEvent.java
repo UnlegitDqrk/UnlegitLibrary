@@ -16,12 +16,13 @@
 
 package me.finn.unlegitlibrary.network.system.server.events.connection;
 
+import me.finn.unlegitlibrary.event.impl.CancellableEvent;
 import me.finn.unlegitlibrary.event.impl.Event;
 import me.finn.unlegitlibrary.network.system.server.NetworkServer;
 
 import java.net.Socket;
 
-public class S_IncomingConnectionEvent extends Event {
+public class S_IncomingConnectionEvent extends CancellableEvent {
 
     public final NetworkServer server;
     public final Socket socket;
