@@ -202,7 +202,7 @@ public class NetworkServer extends DefaultMethodsOverrider {
                     if (logger == null) System.err.println("Restart exception: " + sleepThreadException.getMessage());
                     else logger.exception("Restart exception", sleepThreadException);
                 }
-//
+
                 currentAttempts++;
                 if (currentAttempts <= maxRestartAttempts || maxRestartAttempts < 0) return start();
             }

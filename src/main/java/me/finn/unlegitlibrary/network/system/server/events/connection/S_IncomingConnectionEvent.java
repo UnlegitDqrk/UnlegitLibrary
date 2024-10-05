@@ -26,7 +26,7 @@ public class S_IncomingConnectionEvent extends CancellableEvent {
 
     public final NetworkServer server;
     public final Socket socket;
-    //
+
     public S_IncomingConnectionEvent(NetworkServer server, Socket socket) {
         this.server = server;
         this.socket = socket;
