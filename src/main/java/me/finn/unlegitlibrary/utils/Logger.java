@@ -12,6 +12,7 @@ import java.awt.event.ActionListener;
 import java.io.*;
 import java.lang.reflect.Field;
 import java.lang.System;
+import java.lang.reflect.InaccessibleObjectException;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -29,10 +30,16 @@ public final class Logger {
 
     private boolean isInitialized = false;
 
-    public Logger(File logFolder, boolean addShutdownHook) throws IOException, NoSuchFieldException, IllegalAccessException {
-        Field field = Charset.class.getDeclaredField("defaultCharset");
-        field.setAccessible(true);
-        field.set(null, StandardCharsets.UTF_8);
+    public Logger(File logFolder, boolean changeCharset, boolean addShutdownHook) throws IOException, NoSuchFieldException, IllegalAccessException {
+        if (changeCharset) {
+            try {
+                Field field = Charset.class.getDeclaredField("defaultCharset");
+                field.setAccessible(true);
+                field.set(null, StandardCharsets.UTF_8);
+            } catch (IllegalAccessException | InaccessibleObjectException exception) {
+                exception.printStackTrace();
+            }
+        }
 
         System.setProperty("client.encoding.override", "UTF-8");
         System.setProperty("file.encoding", "UTF-8");
