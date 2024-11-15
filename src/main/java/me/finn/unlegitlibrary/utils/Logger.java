@@ -12,7 +12,6 @@ import java.awt.event.ActionListener;
 import java.io.*;
 import java.lang.reflect.Field;
 import java.lang.System;
-import java.lang.reflect.InaccessibleObjectException;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -36,7 +35,7 @@ public final class Logger {
                 Field field = Charset.class.getDeclaredField("defaultCharset");
                 field.setAccessible(true);
                 field.set(null, StandardCharsets.UTF_8);
-            } catch (IllegalAccessException | InaccessibleObjectException exception) {
+            } catch (IllegalAccessException exception) {
                 exception.printStackTrace();
             }
         }
