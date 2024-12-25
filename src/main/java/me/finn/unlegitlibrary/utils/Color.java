@@ -43,6 +43,14 @@ public class Color {
         return new Color(red, green, blue, alpha);
     }
 
+    public final java.awt.Color toAwtColor() {
+        return new java.awt.Color(red, green, blue, alpha);
+    }
+
+    public static Color fromAwtColor(java.awt.Color awtColor) {
+        return new Color(awtColor.getRed(), awtColor.getGreen(), awtColor.getBlue(), awtColor.getAlpha());
+    }
+
     @Override
     public final boolean equals(Object obj) {
         if (!(obj instanceof Color)) return false;
