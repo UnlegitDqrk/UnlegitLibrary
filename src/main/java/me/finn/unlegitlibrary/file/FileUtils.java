@@ -34,7 +34,7 @@ public class FileUtils extends DefaultMethodsOverrider {
 
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream))) {
             String line;
-            while ((line = reader.readLine()) != null) content.append(line);
+            while ((line = reader.readLine()) != null) content.append(line).append("\n");
         }
 
         inputStream.close();
