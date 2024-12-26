@@ -52,6 +52,14 @@ public class Quaternion {
         return this;
     }
 
+    public Quaternion conjugate(Quaternion dest) {
+        dest.x = -this.x;
+        dest.y = -this.y;
+        dest.z = -this.z;
+        dest.w = this.w;
+        return dest;
+    }
+
     public final Quaternion conjugate() {
         return new Quaternion(-x, -y, -z, w);
     }
