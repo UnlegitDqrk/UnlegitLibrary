@@ -27,6 +27,20 @@ public class FileUtils extends DefaultMethodsOverrider {
         return splitName[splitName.length - 1];
     }
 
+    public static String readFileFromResource(String filePath) throws IOException {
+        StringBuilder content = new StringBuilder();
+        InputStream inputStream = FileUtils.class.getClassLoader().getResourceAsStream(filePath);
+        if (inputStream == null) throw new FileNotFoundException("Can not load resource: " + filePath);
+
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream))) {
+            String line;
+            while ((line = reader.readLine()) != null) content.append(line);
+        }
+
+        inputStream.close();
+        return content.toString();
+    }
+
     public static void deleteDirectoryRecursion(File file) {
         if (file.exists() && file.isDirectory()) {
             File[] entries = file.listFiles();
