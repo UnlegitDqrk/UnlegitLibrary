@@ -2,7 +2,10 @@ package me.finn.unlegitlibrary.file;
 
 import me.finn.unlegitlibrary.utils.DefaultMethodsOverrider;
 
-import java.io.*;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -47,7 +50,7 @@ public class ConfigurationManager extends DefaultMethodsOverrider {
     }
 
     public final Object getObject(String key) {
-        return (Object) properties.getProperty(key);
+        return properties.getProperty(key);
     }
 
     public Map<String, String> getMap(String key) {

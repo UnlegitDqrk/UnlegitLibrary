@@ -24,72 +24,31 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public final class NetworkServer {
-    public static class ServerBuilder extends DefaultMethodsOverrider {
-        private int port;
-
-        private PacketHandler packetHandler;
-        private EventManager eventManager;
-        private Logger logger;
-
-        private int maxRestartAttempts = 0;
-        private int restartDelay = 3000;
-        private int timeout = 0;
-
-        public final NetworkServer build() {
-            return new NetworkServer(port, packetHandler, eventManager, logger, maxRestartAttempts, restartDelay, timeout);
-        }
-
-        public final ServerBuilder setEventManager(EventManager eventManager) {
-            this.eventManager = eventManager;
-            return this;
-        }
-
-        public final ServerBuilder setLogger(Logger logger) {
-            this.logger = logger;
-            return this;
-        }
-
-        public final ServerBuilder setMaxReconnectAttempts(int maxRestartAttempts) {
-            this.maxRestartAttempts = maxRestartAttempts;
-            return this;
-        }
-
-        public final ServerBuilder setPacketHandler(PacketHandler packetHandler) {
-            this.packetHandler = packetHandler;
-            return this;
-        }
-
-        public final ServerBuilder setPort(int port) {
-            this.port = port;
-            return this;
-        }
-
-        public final ServerBuilder setReconnectDelay(int reconnectDelay) {
-            this.restartDelay = reconnectDelay;
-            return this;
-        }
-
-        public final ServerBuilder setTimeout(int timeout) {
-            this.timeout = timeout;
-            return this;
-        }
-    }
-    
     private final int port;
-
     private final PacketHandler packetHandler;
     private final EventManager eventManager;
     private final Logger logger;
-
-    private int currentAttempts;
     private final int timeout;
     private final int maxRestartAttempts;
     private final int restartDelay;
-
     private final List<ConnectionHandler> connectionHandlers = new ArrayList<>();
-    public final Thread incomingConnectionThread = new Thread(this::incomingConnection);
-
+    private int currentAttempts;
     private ServerSocket serverSocket;
+    private NetworkServer(int port, PacketHandler packetHandler, EventManager eventManager, Logger logger, int maxRestartAttempts, int restartDelay, int timeout) {
+        this.port = port;
+        this.timeout = timeout;
+
+        this.packetHandler = packetHandler;
+        this.eventManager = eventManager;
+        this.logger = logger;
+
+        this.maxRestartAttempts = maxRestartAttempts;
+        this.restartDelay = restartDelay;
+        this.currentAttempts = 0;
+
+        this.packetHandler.setServerInstance(this);
+        this.packetHandler.registerPacket(new ClientIDPacket());
+    }    public final Thread incomingConnectionThread = new Thread(this::incomingConnection);
 
     public Logger getLogger() {
         return logger;
@@ -111,37 +70,22 @@ public final class NetworkServer {
         return connectionHandlers;
     }
 
-    public final boolean isAutoRestartEnabled() {
+    public boolean isAutoRestartEnabled() {
         return maxRestartAttempts != 0;
     }
 
-    public final boolean isRunning() {
+    public boolean isRunning() {
         return serverSocket != null && !serverSocket.isClosed() && serverSocket.isBound() &&
                 incomingConnectionThread.isAlive() && !incomingConnectionThread.isInterrupted();
     }
 
-    public final ConnectionHandler getConnectionHandlerByID(int clientID) {
-        for (ConnectionHandler connectionHandler : connectionHandlers) if (connectionHandler.getClientID() == clientID) return connectionHandler;
+    public ConnectionHandler getConnectionHandlerByID(int clientID) {
+        for (ConnectionHandler connectionHandler : connectionHandlers)
+            if (connectionHandler.getClientID() == clientID) return connectionHandler;
         return null;
     }
 
-    private NetworkServer(int port, PacketHandler packetHandler, EventManager eventManager, Logger logger, int maxRestartAttempts, int restartDelay, int timeout) {
-        this.port = port;
-        this.timeout = timeout;
-
-        this.packetHandler = packetHandler;
-        this.eventManager = eventManager;
-        this.logger = logger;
-
-        this.maxRestartAttempts = maxRestartAttempts;
-        this.restartDelay = restartDelay;
-        this.currentAttempts = 0;
-
-        this.packetHandler.setServerInstance(this);
-        this.packetHandler.registerPacket(new ClientIDPacket());
-    }
-
-    public synchronized final boolean start() {
+    public synchronized boolean start() {
         if (isRunning()) return false;
 
         if (logger == null) System.out.println("Trying to start on port " + port + "...");
@@ -222,19 +166,64 @@ public final class NetworkServer {
         }
     }
 
-    public final boolean sendPacket(int clientID, Packet packet) throws IOException, ClassNotFoundException {
+    public boolean sendPacket(int clientID, Packet packet) throws IOException, ClassNotFoundException {
         return getConnectionHandlerByID(clientID).sendPacket(packet);
     }
 
-    public final boolean sendPacket(Packet packet, int clientID) throws IOException, ClassNotFoundException {
+    public boolean sendPacket(Packet packet, int clientID) throws IOException, ClassNotFoundException {
         return sendPacket(clientID, packet);
     }
 
-    public static void main(String[] args) {
-        EventManager eventManager = new EventManager();
-        PacketHandler packetHandler = new PacketHandler();
+    public static class ServerBuilder extends DefaultMethodsOverrider {
+        private int port;
 
-        NetworkServer networkServer = new ServerBuilder().setMaxReconnectAttempts(2).setEventManager(eventManager).setPacketHandler(packetHandler).setPort(1918).build();
-        networkServer.start();
+        private PacketHandler packetHandler;
+        private EventManager eventManager;
+        private Logger logger;
+
+        private int maxRestartAttempts = 0;
+        private int restartDelay = 3000;
+        private int timeout = 0;
+
+        public final NetworkServer build() {
+            return new NetworkServer(port, packetHandler, eventManager, logger, maxRestartAttempts, restartDelay, timeout);
+        }
+
+        public final ServerBuilder setEventManager(EventManager eventManager) {
+            this.eventManager = eventManager;
+            return this;
+        }
+
+        public final ServerBuilder setLogger(Logger logger) {
+            this.logger = logger;
+            return this;
+        }
+
+        public final ServerBuilder setMaxReconnectAttempts(int maxRestartAttempts) {
+            this.maxRestartAttempts = maxRestartAttempts;
+            return this;
+        }
+
+        public final ServerBuilder setPacketHandler(PacketHandler packetHandler) {
+            this.packetHandler = packetHandler;
+            return this;
+        }
+
+        public final ServerBuilder setPort(int port) {
+            this.port = port;
+            return this;
+        }
+
+        public final ServerBuilder setReconnectDelay(int reconnectDelay) {
+            this.restartDelay = reconnectDelay;
+            return this;
+        }
+
+        public final ServerBuilder setTimeout(int timeout) {
+            this.timeout = timeout;
+            return this;
+        }
     }
+
+
 }

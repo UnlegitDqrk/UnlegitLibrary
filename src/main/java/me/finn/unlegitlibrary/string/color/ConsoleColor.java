@@ -10,9 +10,6 @@ package me.finn.unlegitlibrary.string.color;
 
 import me.finn.unlegitlibrary.utils.DefaultMethodsOverrider;
 
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-
 public class ConsoleColor extends DefaultMethodsOverrider {
     // Reset
     public static final String RESET = "\033[0m";  // Text Reset

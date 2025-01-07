@@ -9,9 +9,6 @@
 package me.finn.unlegitlibrary.network.system.client;
 
 import me.finn.unlegitlibrary.event.EventManager;
-import me.finn.unlegitlibrary.network.system.client.events.send.C_PacketFailedSendEvent;
-import me.finn.unlegitlibrary.network.system.client.events.state.C_DisconnectedEvent;
-import me.finn.unlegitlibrary.network.system.packets.impl.ClientDisconnectPacket;
 import me.finn.unlegitlibrary.network.system.client.events.*;
 import me.finn.unlegitlibrary.network.system.packets.Packet;
 import me.finn.unlegitlibrary.network.system.packets.PacketHandler;
@@ -27,86 +24,43 @@ import java.net.Socket;
 import java.net.SocketException;
 
 public final class NetworkClient {
-    public static class ClientBuilder extends DefaultMethodsOverrider {
-        private String host;
-        private int port;
-
-        private PacketHandler packetHandler;
-        private EventManager eventManager;
-        private Logger logger;
-
-        private int maxReconnectAttempts = 0;
-        private int reconnectDelay = 3000;
-        private int timeout = 0;
-
-        public final NetworkClient build() {
-            return new NetworkClient(host, port ,packetHandler, eventManager, logger, maxReconnectAttempts, reconnectDelay, timeout);
-        }
-
-        public final ClientBuilder setEventManager(EventManager eventManager) {
-            this.eventManager = eventManager;
-            return this;
-        }
-
-        public final ClientBuilder setHost(String host) {
-            this.host = host;
-            return this;
-        }
-
-        public final ClientBuilder setLogger(Logger logger) {
-            this.logger = logger;
-            return this;
-        }
-
-        public final ClientBuilder setMaxReconnectAttempts(int maxReconnectAttempts) {
-            this.maxReconnectAttempts = maxReconnectAttempts;
-            return this;
-        }
-
-        public final ClientBuilder setPacketHandler(PacketHandler packetHandler) {
-            this.packetHandler = packetHandler;
-            return this;
-        }
-
-        public final ClientBuilder setPort(int port) {
-            this.port = port;
-            return this;
-        }
-
-        public final ClientBuilder setReconnectDelay(int reconnectDelay) {
-            this.reconnectDelay = reconnectDelay;
-            return this;
-        }
-
-        public final ClientBuilder setTimeout(int timeout) {
-            this.timeout = timeout;
-            return this;
-        }
-    }
-
     private final String host;
     private final int port;
-
     private final PacketHandler packetHandler;
     private final EventManager eventManager;
     private final Logger logger;
-
-    private Socket socket;
-    private int timeout;
-
-    private ObjectOutputStream outputStream;
-    private ObjectInputStream inputStream;
-
-    private int clientID;
-
-    private int currentAttempts;
     private final int maxReconnectAttempts;
     private final int reconnectDelay;
+    private Socket socket;
+    private final int timeout;
+    private ObjectOutputStream outputStream;
+    private ObjectInputStream inputStream;
+    private int clientID;
+    private int currentAttempts;
+    private NetworkClient(String host, int port, PacketHandler packetHandler, EventManager eventManager, Logger logger, int reconnectAttempts, int reconnectDelay, int timeout) {
+        this.host = host;
+        this.port = port;
+        this.clientID = -1;
+        this.timeout = timeout;
 
-    private final Thread receiveThread = new Thread(this::receive);
+        this.packetHandler = packetHandler;
+        this.eventManager = eventManager;
+        this.logger = logger;
+
+        this.maxReconnectAttempts = reconnectAttempts;
+        this.reconnectDelay = reconnectDelay;
+        this.currentAttempts = 0;
+
+        this.packetHandler.setClientInstance(this);
+        this.packetHandler.registerPacket(new ClientIDPacket());
+    }
 
     public int getClientID() {
         return clientID;
+    }    private final Thread receiveThread = new Thread(this::receive);
+
+    public void setClientID(int clientID) {
+        if (this.clientID == -1) this.clientID = clientID;
     }
 
     public Socket getSocket() {
@@ -142,24 +96,6 @@ public final class NetworkClient {
         return maxReconnectAttempts != 0;
     }
 
-    private NetworkClient(String host, int port, PacketHandler packetHandler, EventManager eventManager, Logger logger, int reconnectAttempts, int reconnectDelay, int timeout) {
-        this.host = host;
-        this.port = port;
-        this.clientID = -1;
-        this.timeout = timeout;
-
-        this.packetHandler = packetHandler;
-        this.eventManager = eventManager;
-        this.logger = logger;
-
-        this.maxReconnectAttempts = reconnectAttempts;
-        this.reconnectDelay = reconnectDelay;
-        this.currentAttempts = 0;
-
-        this.packetHandler.setClientInstance(this);
-        this.packetHandler.registerPacket(new ClientIDPacket());
-    }
-
     public synchronized boolean connect() throws ConnectException {
         if (isConnected()) return false;
 
@@ -177,7 +113,8 @@ public final class NetworkClient {
             receiveThread.start();
 
             if (currentAttempts == 0) currentAttempts++;
-            if (logger == null) System.out.println("Connected to " + host + ":" + port + " (Attempts: " + currentAttempts + ")");
+            if (logger == null)
+                System.out.println("Connected to " + host + ":" + port + " (Attempts: " + currentAttempts + ")");
             else logger.info("Connected to " + host + ":" + port + " (Attempts: " + currentAttempts + ")");
 
             eventManager.executeEvent(new ClientConnectedEvent(this));
@@ -229,11 +166,6 @@ public final class NetworkClient {
                 return;
             }
         }
-    }
-
-
-    public void setClientID(int clientID) {
-        if (this.clientID == -1) this.clientID = clientID;
     }
 
     public boolean sendPacket(Packet packet) throws IOException, ClassNotFoundException {
@@ -292,4 +224,63 @@ public final class NetworkClient {
 
         return true;
     }
+
+    public static class ClientBuilder extends DefaultMethodsOverrider {
+        private String host;
+        private int port;
+
+        private PacketHandler packetHandler;
+        private EventManager eventManager;
+        private Logger logger;
+
+        private int maxReconnectAttempts = 0;
+        private int reconnectDelay = 3000;
+        private int timeout = 0;
+
+        public final NetworkClient build() {
+            return new NetworkClient(host, port, packetHandler, eventManager, logger, maxReconnectAttempts, reconnectDelay, timeout);
+        }
+
+        public final ClientBuilder setEventManager(EventManager eventManager) {
+            this.eventManager = eventManager;
+            return this;
+        }
+
+        public final ClientBuilder setHost(String host) {
+            this.host = host;
+            return this;
+        }
+
+        public final ClientBuilder setLogger(Logger logger) {
+            this.logger = logger;
+            return this;
+        }
+
+        public final ClientBuilder setMaxReconnectAttempts(int maxReconnectAttempts) {
+            this.maxReconnectAttempts = maxReconnectAttempts;
+            return this;
+        }
+
+        public final ClientBuilder setPacketHandler(PacketHandler packetHandler) {
+            this.packetHandler = packetHandler;
+            return this;
+        }
+
+        public final ClientBuilder setPort(int port) {
+            this.port = port;
+            return this;
+        }
+
+        public final ClientBuilder setReconnectDelay(int reconnectDelay) {
+            this.reconnectDelay = reconnectDelay;
+            return this;
+        }
+
+        public final ClientBuilder setTimeout(int timeout) {
+            this.timeout = timeout;
+            return this;
+        }
+    }
+
+
 }

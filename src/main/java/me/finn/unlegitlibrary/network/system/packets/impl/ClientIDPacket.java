@@ -16,11 +16,11 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 
 public class ClientIDPacket extends Packet {
+    private int clientID;
+
     public ClientIDPacket() {
         super(0);
     }
-
-    private int clientID;
 
     public ClientIDPacket(int clientID) {
         this();

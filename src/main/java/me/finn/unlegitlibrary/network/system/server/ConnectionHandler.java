@@ -26,17 +26,6 @@ public class ConnectionHandler {
 
     private ObjectOutputStream outputStream;
     private ObjectInputStream inputStream;
-    public final Thread receiveThread = new Thread(this::receive);
-
-    public int getClientID() {
-        return clientID;
-    }
-
-    public final boolean isConnected() {
-        return networkServer.isRunning() && socket != null && socket.isConnected() && !socket.isClosed() && socket.isBound()
-                && receiveThread.isAlive() && !receiveThread.isInterrupted();
-    }
-
     public ConnectionHandler(NetworkServer server, Socket socket, int clientID) throws IOException, ClassNotFoundException {
         this.networkServer = server;
         this.socket = socket;
@@ -49,6 +38,15 @@ public class ConnectionHandler {
 
         sendPacket(new ClientIDPacket());
         networkServer.getEventManager().executeEvent(new ConnectionHandlerConnectedEvent(this));
+    }    public final Thread receiveThread = new Thread(this::receive);
+
+    public int getClientID() {
+        return clientID;
+    }
+
+    public final boolean isConnected() {
+        return networkServer.isRunning() && socket != null && socket.isConnected() && !socket.isClosed() && socket.isBound()
+                && receiveThread.isAlive() && !receiveThread.isInterrupted();
     }
 
     public synchronized boolean disconnect() {
@@ -68,8 +66,10 @@ public class ConnectionHandler {
                 inputStream.close();
                 socket.close();
             } catch (IOException exception) {
-                if (networkServer.getLogger() == null) System.err.println("Client ID '" + clientID + "' failed to close socket: " + exception.getMessage());
-                else networkServer.getLogger().exception("Client ID '" + clientID + "' failed to close socket", exception);
+                if (networkServer.getLogger() == null)
+                    System.err.println("Client ID '" + clientID + "' failed to close socket: " + exception.getMessage());
+                else
+                    networkServer.getLogger().exception("Client ID '" + clientID + "' failed to close socket", exception);
             }
         }
 
@@ -117,7 +117,8 @@ public class ConnectionHandler {
                             networkServer.getEventManager().executeEvent(new S_PacketReceivedEvent(this, packet));
                         else
                             networkServer.getEventManager().executeEvent(new S_PacketReceivedFailedEvent(this, packet));
-                    } else networkServer.getEventManager().executeEvent(new S_UnknownObjectReceivedEvent(received, this));
+                    } else
+                        networkServer.getEventManager().executeEvent(new S_UnknownObjectReceivedEvent(received, this));
                 } else networkServer.getEventManager().executeEvent(new S_UnknownObjectReceivedEvent(received, this));
             } catch (SocketException ignored) {
                 disconnect();
@@ -127,4 +128,6 @@ public class ConnectionHandler {
             }
         }
     }
+
+
 }

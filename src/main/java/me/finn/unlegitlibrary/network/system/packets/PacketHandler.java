@@ -25,31 +25,31 @@ public final class PacketHandler extends DefaultMethodsOverrider {
     private NetworkClient clientInstance;
     private NetworkServer serverInstance;
 
-    public final NetworkClient getClientInstance() {
+    public NetworkClient getClientInstance() {
         return clientInstance;
-    }
-
-    public final NetworkServer getServerInstance() {
-        return serverInstance;
     }
 
     public void setClientInstance(NetworkClient clientInstance) {
         if (this.clientInstance == null) this.clientInstance = clientInstance;
     }
 
+    public NetworkServer getServerInstance() {
+        return serverInstance;
+    }
+
     public void setServerInstance(NetworkServer serverInstance) {
         if (this.serverInstance == null) this.serverInstance = serverInstance;
     }
 
-    public final boolean isPacketIDRegistered(int id) {
+    public boolean isPacketIDRegistered(int id) {
         return packets.containsKey(id);
     }
 
-    public final Packet getPacketByID(int id) {
+    public Packet getPacketByID(int id) {
         return packets.get(id);
     }
 
-    public final boolean registerPacket(Packet packet) {
+    public boolean registerPacket(Packet packet) {
         int id = packet.getPacketID();
 
         if (isPacketIDRegistered(id)) return false;
@@ -58,7 +58,7 @@ public final class PacketHandler extends DefaultMethodsOverrider {
         return true;
     }
 
-    public final boolean handlePacket(int id, Packet packet, ObjectInputStream inputStream) throws IOException, ClassNotFoundException {
+    public boolean handlePacket(int id, Packet packet, ObjectInputStream inputStream) throws IOException, ClassNotFoundException {
         if (!isPacketIDRegistered(id) || (packet != null && id != packet.getPacketID()) || (packet != null && !isPacketIDRegistered(packet.getPacketID())))
             return false;
 
@@ -66,7 +66,7 @@ public final class PacketHandler extends DefaultMethodsOverrider {
         return true;
     }
 
-    public final boolean sendPacket(Packet packet, ObjectOutputStream outputStream) throws IOException, ClassNotFoundException {
+    public boolean sendPacket(Packet packet, ObjectOutputStream outputStream) throws IOException, ClassNotFoundException {
         int id = packet.getPacketID();
         if (!isPacketIDRegistered(id)) return false;
 

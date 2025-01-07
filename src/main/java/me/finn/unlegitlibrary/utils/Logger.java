@@ -3,29 +3,24 @@ package me.finn.unlegitlibrary.utils;
 import me.finn.unlegitlibrary.file.FileUtils;
 import me.finn.unlegitlibrary.string.color.ConsoleColor;
 
-import java.awt.*;
-import java.awt.datatransfer.Clipboard;
-import java.awt.datatransfer.DataFlavor;
-import java.awt.datatransfer.Transferable;
-import java.awt.datatransfer.UnsupportedFlavorException;
-import java.awt.event.ActionListener;
-import java.io.*;
+import java.io.File;
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.lang.reflect.Field;
-import java.lang.System;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.text.SimpleDateFormat;
-import java.util.*;
-import java.util.logging.Level;
+import java.util.Date;
 
 /**
  * Logger by shock9 Interactive
  */
 public final class Logger {
-    private File logFolder;
-    private File latestLogFile;
+    private final File logFolder;
+    private final File latestLogFile;
 
     private boolean isInitialized = false;
 
@@ -66,7 +61,7 @@ public final class Logger {
     }
 
     // Renaming latest log to current date and yeah
-    public final void shutdown() throws IOException {
+    public void shutdown() throws IOException {
         if (!isInitialized) return;
 
         // Get current date and time
@@ -84,12 +79,12 @@ public final class Logger {
         isInitialized = false;
     }
 
-    private final void writeToLog(String log) throws IOException {
+    private void writeToLog(String log) throws IOException {
         if (isInitialized)
             FileUtils.writeFile(latestLogFile, FileUtils.readFileFull(latestLogFile) + System.lineSeparator() + log);
     }
 
-    public final void log(String string) {
+    public void log(String string) {
         // Get current date and time
         SimpleDateFormat formatter = new SimpleDateFormat("HH:mm:ss");
         Date date = new Date();
@@ -105,7 +100,7 @@ public final class Logger {
         }
     }
 
-    public final void info(String info) {
+    public void info(String info) {
         // Get current date and time
         SimpleDateFormat formatter = new SimpleDateFormat("HH:mm:ss");
         Date date = new Date();
@@ -124,7 +119,7 @@ public final class Logger {
         }
     }
 
-    public final void warn(String warn) {
+    public void warn(String warn) {
         // Get current date and time
         SimpleDateFormat formatter = new SimpleDateFormat("HH:mm:ss");
         Date date = new Date();
@@ -143,7 +138,7 @@ public final class Logger {
         }
     }
 
-    public final void error(String error) {
+    public void error(String error) {
         // Get current date and time
         SimpleDateFormat formatter = new SimpleDateFormat("HH:mm:ss");
         Date date = new Date();
@@ -162,7 +157,7 @@ public final class Logger {
         }
     }
 
-    public final void exception(String infoLine, Exception exception) {
+    public void exception(String infoLine, Exception exception) {
         // Get current date and time
         SimpleDateFormat formatter = new SimpleDateFormat("HH:mm:ss");
         Date date = new Date();
@@ -177,8 +172,8 @@ public final class Logger {
         // Writing log
         String log =
                 timeStamp + " [EXCEPTION-INFO] " + infoLine + System.lineSeparator() +
-                timeStamp + " [EXCEPTION-MESSAGE] " + exception.getMessage() + System.lineSeparator() +
-                timeStamp + " [EXCEPTION-STACKTRACE] " + stackTrace;
+                        timeStamp + " [EXCEPTION-MESSAGE] " + exception.getMessage() + System.lineSeparator() +
+                        timeStamp + " [EXCEPTION-STACKTRACE] " + stackTrace;
 
         System.out.println(ConsoleColor.RED + log + ConsoleColor.RESET);
 
@@ -189,7 +184,7 @@ public final class Logger {
         }
     }
 
-    public final void debug(String debug) {
+    public void debug(String debug) {
         // Get current date and time
         SimpleDateFormat formatter = new SimpleDateFormat("HH:mm:ss");
         Date date = new Date();

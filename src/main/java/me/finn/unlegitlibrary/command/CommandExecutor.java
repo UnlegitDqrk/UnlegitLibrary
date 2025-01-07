@@ -18,6 +18,13 @@ public abstract class CommandExecutor {
     public final String name;
     private final List<CommandPermission> permissions;
 
+    public CommandExecutor(String name, CommandPermission... permissions) {
+        this.name = name;
+
+        this.permissions = new ArrayList<>();
+        this.permissions.addAll(Arrays.asList(permissions));
+    }
+
     public List<CommandPermission> getPermissions() {
         return new ArrayList<>(permissions);
     }
@@ -28,13 +35,6 @@ public abstract class CommandExecutor {
 
     public boolean hasPermissions(List<CommandPermission> permissions) {
         return new HashSet<>(this.permissions).containsAll(permissions);
-    }
-
-    public CommandExecutor(String name, CommandPermission... permissions) {
-        this.name = name;
-
-        this.permissions = new ArrayList<>();
-        this.permissions.addAll(Arrays.asList(permissions));
     }
 
 

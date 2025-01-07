@@ -13,7 +13,10 @@ import me.finn.unlegitlibrary.utils.DefaultMethodsOverrider;
 import java.io.*;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.*;
+import java.nio.file.Files;
+import java.nio.file.LinkOption;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Stream;
@@ -129,7 +132,7 @@ public class FileUtils extends DefaultMethodsOverrider {
 
     public static List<String> readFileLines(File file) throws IOException {
         List<String> lines = new ArrayList<>();
-        BufferedReader in = new BufferedReader(new InputStreamReader(new FileInputStream(file), "UTF8"));
+        BufferedReader in = new BufferedReader(new InputStreamReader(new FileInputStream(file), StandardCharsets.UTF_8));
         String str;
         while ((str = in.readLine()) != null) lines.add(str);
         return lines;

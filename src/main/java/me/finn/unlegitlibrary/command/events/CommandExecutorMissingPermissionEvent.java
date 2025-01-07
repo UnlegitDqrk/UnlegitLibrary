@@ -11,7 +11,6 @@ package me.finn.unlegitlibrary.command.events;
 import me.finn.unlegitlibrary.command.Command;
 import me.finn.unlegitlibrary.command.CommandExecutor;
 import me.finn.unlegitlibrary.command.CommandManager;
-import me.finn.unlegitlibrary.event.impl.CancellableEvent;
 import me.finn.unlegitlibrary.event.impl.Event;
 
 public class CommandExecutorMissingPermissionEvent extends Event {
