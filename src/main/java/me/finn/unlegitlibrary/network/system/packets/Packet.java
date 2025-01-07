@@ -1,13 +1,5 @@
 /*
- * Copyright (C) 2024 UnlegitDqrk - All Rights Reserved
- *
- * You are unauthorized to remove this copyright.
- * You have to give Credits to the Author in your project and link this GitHub site: https://github.com/UnlegitDqrk
- * See LICENSE-File if exists
- */
-
-/*
- * Copyright (C) 2024 UnlegitDqrk - All Rights Reserved
+ * Copyright (C) 2025 UnlegitDqrk - All Rights Reserved
  *
  * You are unauthorized to remove this copyright.
  * You have to give Credits to the Author in your project and link this GitHub site: https://github.com/UnlegitDqrk
@@ -36,4 +28,3 @@ public abstract class Packet {
 
     public abstract void read(PacketHandler packetHandler, ObjectInputStream outputStream) throws IOException, ClassNotFoundException;
 }
-

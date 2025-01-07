@@ -21,14 +21,12 @@ import java.util.Map;
 public class EventManager extends DefaultMethodsOverrider {
 
     private final HashMap<Class<? extends Event>, HashMap<EventPriority, HashMap<Object, Method>>> registeredListener = new HashMap<>();
-    private final HashMap<Class<? extends EventListener>, Object> eventListeners = new HashMap<>();
+    private final HashMap<EventListener, Object> eventListeners = new HashMap<>();
 
-    public final void registerListener(Class<? extends EventListener> listenerClass) throws InstantiationException, IllegalAccessException, NoSuchMethodException, InvocationTargetException {
+    public final void registerListener(EventListener listenerClass) throws InstantiationException, IllegalAccessException, NoSuchMethodException, InvocationTargetException {
         if (isListenerRegistered(listenerClass)) return;
 
-        Object clazz = listenerClass.getDeclaredConstructor().newInstance();
-
-        for (Method method : clazz.getClass().getDeclaredMethods()) {
+        for (Method method : listenerClass.getClass().getDeclaredMethods()) {
             Listener listener = method.getAnnotation(Listener.class);
 
             if (listener == null) continue;
@@ -39,16 +37,16 @@ public class EventManager extends DefaultMethodsOverrider {
                 HashMap<EventPriority, HashMap<Object, Method>> list = registeredListener.getOrDefault(eventClass, new HashMap<>());
                 HashMap<Object, Method> set = list.getOrDefault(listener.priority(), new HashMap<>());
 
-                set.put(clazz, method);
+                set.put(listenerClass, method);
                 list.put(listener.priority(), set);
                 registeredListener.put(eventClass, list);
             }
         }
 
-        eventListeners.put(listenerClass, clazz);
+        eventListeners.put(listenerClass, listenerClass);
     }
 
-    public synchronized final void unregisterListener(Class<? extends EventListener> listenerClass) {
+    public synchronized final void unregisterListener(EventListener listenerClass) {
         if (!isListenerRegistered(listenerClass)) return;
 
         Object clazz = eventListeners.get(listenerClass);
@@ -95,7 +93,7 @@ public class EventManager extends DefaultMethodsOverrider {
         eventListeners.remove(listenerClass);
     }
 
-    public final boolean isListenerRegistered(Class<? extends EventListener> listenerClass) {
+    public final boolean isListenerRegistered(EventListener listenerClass) {
         return eventListeners.containsKey(listenerClass);
     }
 
@@ -103,7 +101,7 @@ public class EventManager extends DefaultMethodsOverrider {
         HashMap<EventPriority, HashMap<Object, Method>> list = registeredListener.getOrDefault(event.getClass(), new HashMap<>());
 
         list.getOrDefault(EventPriority.LOWEST, new HashMap<>()).forEach((k, v) -> {
-            if (!isListenerRegistered((Class<? extends EventListener>) k.getClass())) return;
+            if (!isListenerRegistered((EventListener) k)) return;
 
             try {
                 v.invoke(k, event);
@@ -113,7 +111,7 @@ public class EventManager extends DefaultMethodsOverrider {
         });
 
         list.getOrDefault(EventPriority.LOW, new HashMap<>()).forEach((k, v) -> {
-            if (!isListenerRegistered((Class<? extends EventListener>) k.getClass())) return;
+            if (!isListenerRegistered((EventListener) k)) return;
 
             try {
                 v.invoke(k, event);
@@ -123,7 +121,7 @@ public class EventManager extends DefaultMethodsOverrider {
         });
 
         list.getOrDefault(EventPriority.NORMAL, new HashMap<>()).forEach((k, v) -> {
-            if (!isListenerRegistered((Class<? extends EventListener>) k.getClass())) return;
+            if (!isListenerRegistered((EventListener) k)) return;
 
             try {
                 v.invoke(k, event);
@@ -133,7 +131,7 @@ public class EventManager extends DefaultMethodsOverrider {
         });
 
         list.getOrDefault(EventPriority.HIGH, new HashMap<>()).forEach((k, v) -> {
-            if (!isListenerRegistered((Class<? extends EventListener>) k.getClass())) return;
+            if (!isListenerRegistered((EventListener) k)) return;
 
             try {
                 v.invoke(k, event);
@@ -143,7 +141,7 @@ public class EventManager extends DefaultMethodsOverrider {
         });
 
         list.getOrDefault(EventPriority.HIGHEST, new HashMap<>()).forEach((k, v) -> {
-            if (!isListenerRegistered((Class<? extends EventListener>) k.getClass())) return;
+            if (!isListenerRegistered((EventListener) k)) return;
 
             try {
                 v.invoke(k, event);

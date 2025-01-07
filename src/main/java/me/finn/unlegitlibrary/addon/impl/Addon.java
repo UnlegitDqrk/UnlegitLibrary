@@ -40,11 +40,11 @@ public abstract class Addon {
         eventManager.executeEvent(event);
     }
 
-    public final void registerEventListener(Class<? extends EventListener> eventListener) throws InvocationTargetException, InstantiationException, IllegalAccessException, NoSuchMethodException {
+    public final void registerEventListener(EventListener eventListener) throws InvocationTargetException, InstantiationException, IllegalAccessException, NoSuchMethodException {
         eventManager.registerListener(eventListener);
     }
 
-    public final void unregisterEventListener(Class<? extends EventListener> eventListener) {
+    public final void unregisterEventListener(EventListener eventListener) {
         eventManager.unregisterListener(eventListener);
     }
 

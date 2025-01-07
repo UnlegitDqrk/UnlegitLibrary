@@ -1,13 +1,5 @@
 /*
- * Copyright (C) 2024 UnlegitDqrk - All Rights Reserved
- *
- * You are unauthorized to remove this copyright.
- * You have to give Credits to the Author in your project and link this GitHub site: https://github.com/UnlegitDqrk
- * See LICENSE-File if exists
- */
-
-/*
- * Copyright (C) 2024 UnlegitDqrk - All Rights Reserved
+ * Copyright (C) 2025 UnlegitDqrk - All Rights Reserved
  *
  * You are unauthorized to remove this copyright.
  * You have to give Credits to the Author in your project and link this GitHub site: https://github.com/UnlegitDqrk
@@ -23,13 +15,12 @@ import me.finn.unlegitlibrary.utils.DefaultMethodsOverrider;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
-import java.lang.reflect.InvocationTargetException;
 import java.util.HashMap;
 import java.util.Map;
 
-public class PacketHandler extends DefaultMethodsOverrider {
+public final class PacketHandler extends DefaultMethodsOverrider {
 
-    private final Map<Integer, Class<? extends Packet>> packets = new HashMap<>();
+    private final Map<Integer, Packet> packets = new HashMap<>();
 
     private NetworkClient clientInstance;
     private NetworkServer serverInstance;
@@ -55,24 +46,15 @@ public class PacketHandler extends DefaultMethodsOverrider {
     }
 
     public final Packet getPacketByID(int id) {
-        Class<? extends Packet> packetClass = packets.get(id);
-        if (packetClass == null) return null;
-        try {
-            return packetClass.getDeclaredConstructor().newInstance();
-        } catch (InstantiationException | InvocationTargetException | IllegalAccessException |
-                 NoSuchMethodException exception) {
-            return null;
-        }
+        return packets.get(id);
     }
 
-    public final boolean registerPacket(Class<? extends Packet> packetClass) throws NoSuchMethodException, InvocationTargetException, InstantiationException, IllegalAccessException {
-        Packet packet = packetClass.getDeclaredConstructor().newInstance();
+    public final boolean registerPacket(Packet packet) {
         int id = packet.getPacketID();
 
-        if (!(packet instanceof SystemPacket) && isPacketIDRegistered(id)) return false;
-        else if (isPacketIDRegistered(id)) packets.remove(id);
+        if (isPacketIDRegistered(id)) return false;
 
-        packets.put(id, packetClass);
+        packets.put(id, packet);
         return true;
     }
 

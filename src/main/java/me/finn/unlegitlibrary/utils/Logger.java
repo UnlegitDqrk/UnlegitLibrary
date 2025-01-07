@@ -189,7 +189,7 @@ public final class Logger {
         }
     }
 
-    public final void debug(String debug) throws IOException {
+    public final void debug(String debug) {
         // Get current date and time
         SimpleDateFormat formatter = new SimpleDateFormat("HH:mm:ss");
         Date date = new Date();

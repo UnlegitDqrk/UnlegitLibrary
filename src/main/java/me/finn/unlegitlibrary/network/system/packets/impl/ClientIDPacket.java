@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 UnlegitDqrk - All Rights Reserved
+ * Copyright (C) 2025 UnlegitDqrk - All Rights Reserved
  *
  * You are unauthorized to remove this copyright.
  * You have to give Credits to the Author in your project and link this GitHub site: https://github.com/UnlegitDqrk
@@ -8,18 +8,16 @@
 
 package me.finn.unlegitlibrary.network.system.packets.impl;
 
-import me.finn.unlegitlibrary.network.system.client.NetworkClient;
+import me.finn.unlegitlibrary.network.system.packets.Packet;
 import me.finn.unlegitlibrary.network.system.packets.PacketHandler;
-import me.finn.unlegitlibrary.network.system.packets.SystemPacket;
 
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 
-public class ClientIDPacket extends SystemPacket {
-
+public class ClientIDPacket extends Packet {
     public ClientIDPacket() {
-        super(-1);
+        super(0);
     }
 
     private int clientID;
@@ -36,7 +34,6 @@ public class ClientIDPacket extends SystemPacket {
 
     @Override
     public void read(PacketHandler packetHandler, ObjectInputStream outputStream) throws IOException, ClassNotFoundException {
-        clientID = outputStream.readInt();
         packetHandler.getClientInstance().setClientID(clientID);
     }
 }

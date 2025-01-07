@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 UnlegitDqrk - All Rights Reserved
+ * Copyright (C) 2025 UnlegitDqrk - All Rights Reserved
  *
  * You are unauthorized to remove this copyright.
  * You have to give Credits to the Author in your project and link this GitHub site: https://github.com/UnlegitDqrk
@@ -9,29 +9,21 @@
 package me.finn.unlegitlibrary.network.system.server;
 
 import me.finn.unlegitlibrary.event.EventManager;
-import me.finn.unlegitlibrary.network.system.client.NetworkClient;
-import me.finn.unlegitlibrary.network.system.packets.impl.ClientDisconnectPacket;
-import me.finn.unlegitlibrary.network.system.packets.impl.ClientIDPacket;
-import me.finn.unlegitlibrary.network.system.server.events.connection.S_IncomingConnectionEvent;
-import me.finn.unlegitlibrary.network.system.server.events.connection.S_IncomingConnectionThreadFailedEvent;
-import me.finn.unlegitlibrary.network.system.server.events.state.connection.S_ConnectionHandlerConnectedEvent;
-import me.finn.unlegitlibrary.network.system.server.events.state.server.S_StartedEvent;
-import me.finn.unlegitlibrary.network.system.server.events.state.server.S_StoppedEvent;
 import me.finn.unlegitlibrary.network.system.packets.Packet;
 import me.finn.unlegitlibrary.network.system.packets.PacketHandler;
+import me.finn.unlegitlibrary.network.system.packets.impl.ClientIDPacket;
+import me.finn.unlegitlibrary.network.system.server.events.IncomingConnectionEvent;
 import me.finn.unlegitlibrary.utils.DefaultMethodsOverrider;
 import me.finn.unlegitlibrary.utils.Logger;
 
 import java.io.IOException;
-import java.lang.reflect.InvocationTargetException;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-public class NetworkServer extends DefaultMethodsOverrider {
-
+public final class NetworkServer {
     public static class ServerBuilder extends DefaultMethodsOverrider {
         private int port;
 
@@ -43,7 +35,7 @@ public class NetworkServer extends DefaultMethodsOverrider {
         private int restartDelay = 3000;
         private int timeout = 0;
 
-        public final NetworkServer build() throws InvocationTargetException, NoSuchMethodException, InstantiationException, IllegalAccessException {
+        public final NetworkServer build() {
             return new NetworkServer(port, packetHandler, eventManager, logger, maxRestartAttempts, restartDelay, timeout);
         }
 
@@ -82,7 +74,7 @@ public class NetworkServer extends DefaultMethodsOverrider {
             return this;
         }
     }
-
+    
     private final int port;
 
     private final PacketHandler packetHandler;
@@ -99,44 +91,23 @@ public class NetworkServer extends DefaultMethodsOverrider {
 
     private ServerSocket serverSocket;
 
-    private NetworkServer(int port, PacketHandler packetHandler, EventManager eventManager, Logger logger, int maxRestartAttempts, int restartDelay, int timeout) throws InvocationTargetException, NoSuchMethodException, InstantiationException, IllegalAccessException {
-        this.port = port;
-        this.timeout = timeout;
-
-        this.packetHandler = packetHandler;
-        this.eventManager = eventManager;
-        this.logger = logger;
-
-        this.maxRestartAttempts = maxRestartAttempts;
-        this.restartDelay = restartDelay;
-        this.currentAttempts = 0;
-
-        this.packetHandler.setServerInstance(this);
-        this.packetHandler.registerPacket(ClientDisconnectPacket.class);
-        this.packetHandler.registerPacket(ClientIDPacket.class);
-    }
-
-    public final Logger getLogger() {
+    public Logger getLogger() {
         return logger;
     }
 
-    public final EventManager getEventManager() {
+    public EventManager getEventManager() {
         return eventManager;
     }
 
-    public final int getPort() {
+    public int getPort() {
         return port;
     }
 
-    public final ServerSocket getServerSocket() {
-        return serverSocket;
-    }
-
-    public final PacketHandler getPacketHandler() {
+    public PacketHandler getPacketHandler() {
         return packetHandler;
     }
 
-    public final List<ConnectionHandler> getConnectionHandlers() {
+    public List<ConnectionHandler> getConnectionHandlers() {
         return connectionHandlers;
     }
 
@@ -154,24 +125,20 @@ public class NetworkServer extends DefaultMethodsOverrider {
         return null;
     }
 
-    public synchronized final boolean stop() {
-        if (!isRunning()) return false;
+    private NetworkServer(int port, PacketHandler packetHandler, EventManager eventManager, Logger logger, int maxRestartAttempts, int restartDelay, int timeout) {
+        this.port = port;
+        this.timeout = timeout;
 
-        if (logger == null) System.out.println("Trying to stop server...");
-        else logger.info("Trying to stop server...");
+        this.packetHandler = packetHandler;
+        this.eventManager = eventManager;
+        this.logger = logger;
 
-        new ArrayList<>(connectionHandlers).forEach(connectionHandler -> connectionHandler.disconnect(true));
-        connectionHandlers.clear();
+        this.maxRestartAttempts = maxRestartAttempts;
+        this.restartDelay = restartDelay;
+        this.currentAttempts = 0;
 
-        incomingConnectionThread.interrupt();
-        serverSocket = null;
-        currentAttempts = 0;
-
-        if (logger == null) System.out.println("Server stopped");
-        else logger.info("Server stopped");
-
-        eventManager.executeEvent(new S_StoppedEvent(this));
-        return true;
+        this.packetHandler.setServerInstance(this);
+        this.packetHandler.registerPacket(new ClientIDPacket());
     }
 
     public synchronized final boolean start() {
@@ -191,8 +158,6 @@ public class NetworkServer extends DefaultMethodsOverrider {
             else logger.info("Started at port " + port + " (Attempts: " + currentAttempts + ")");
 
             currentAttempts = 0;
-
-            eventManager.executeEvent(new S_StartedEvent(this));
             return true;
         } catch (IOException exception) {
             if (maxRestartAttempts != 0) {
@@ -214,21 +179,17 @@ public class NetworkServer extends DefaultMethodsOverrider {
         return false;
     }
 
-    public final boolean sendPacket(int clientID, Packet packet) {
-        return getConnectionHandlerByID(clientID).sendPacket(packet);
-    }
-
-    public final boolean sendPacket(Packet packet, int clientID) {
-        return sendPacket(clientID, packet);
-    }
-
-    public final Thread getIncomingConnectionThread() {
-        return incomingConnectionThread;
-    }
-
-    public final boolean broadcastPacket(Packet packet) {
+    public boolean broadcastPacket(Packet packet) {
         AtomicBoolean toReturn = new AtomicBoolean(false);
-        connectionHandlers.forEach(connectionHandler -> toReturn.set(connectionHandler.sendPacket(packet)));
+        connectionHandlers.forEach(connectionHandler -> {
+            try {
+                if (!toReturn.get()) return;
+                toReturn.set(connectionHandler.sendPacket(packet));
+            } catch (IOException | ClassNotFoundException e) {
+                toReturn.set(false);
+            }
+        });
+
         return toReturn.get();
     }
 
@@ -244,25 +205,36 @@ public class NetworkServer extends DefaultMethodsOverrider {
                 if (logger == null) System.out.println("Accepted connection from " + socket.getRemoteSocketAddress());
                 else logger.info("Accepted connection from " + socket.getRemoteSocketAddress());
 
-                S_IncomingConnectionEvent incomingConnectionEvent = new S_IncomingConnectionEvent(this, socket);
+                IncomingConnectionEvent incomingConnectionEvent = new IncomingConnectionEvent(this, socket);
+
                 eventManager.executeEvent(incomingConnectionEvent);
 
                 if (incomingConnectionEvent.isCancelled()) {
                     socket.close();
-                    continue;
+                    return;
                 }
 
                 ConnectionHandler connectionHandler = new ConnectionHandler(this, socket, connectionHandlers.size() + 1);
                 connectionHandlers.add(connectionHandler);
-                eventManager.executeEvent(new S_ConnectionHandlerConnectedEvent(connectionHandler));
             }
-        } catch (IOException exception) {
-            if (logger == null) System.err.println("Accept exception: " + exception.getMessage());
-            else logger.exception("Accept exception", exception);
-
-            eventManager.executeEvent(new S_IncomingConnectionThreadFailedEvent(this, exception));
+        } catch (IOException | ClassNotFoundException exception) {
+            exception.printStackTrace();
         }
+    }
 
-        stop();
+    public final boolean sendPacket(int clientID, Packet packet) throws IOException, ClassNotFoundException {
+        return getConnectionHandlerByID(clientID).sendPacket(packet);
+    }
+
+    public final boolean sendPacket(Packet packet, int clientID) throws IOException, ClassNotFoundException {
+        return sendPacket(clientID, packet);
+    }
+
+    public static void main(String[] args) {
+        EventManager eventManager = new EventManager();
+        PacketHandler packetHandler = new PacketHandler();
+
+        NetworkServer networkServer = new ServerBuilder().setMaxReconnectAttempts(2).setEventManager(eventManager).setPacketHandler(packetHandler).setPort(1918).build();
+        networkServer.start();
     }
 }

@@ -85,12 +85,12 @@ public class AddonLoader extends DefaultMethodsOverrider {
         addons.forEach(this::disableAddon);
     }
 
-    public final void registerEventListener(Addon addon, Class<? extends EventListener> eventListener) throws InvocationTargetException, InstantiationException, IllegalAccessException, NoSuchMethodException {
+    public final void registerEventListener(Addon addon, EventListener eventListener) throws InvocationTargetException, InstantiationException, IllegalAccessException, NoSuchMethodException {
         if (!addons.contains(addon)) return;
         addon.registerEventListener(eventListener);
     }
 
-    public final void unregisterEventListener(Addon addon, Class<? extends EventListener> eventListener) {
+    public final void unregisterEventListener(Addon addon, EventListener eventListener) {
         if (!addons.contains(addon)) return;
         addon.unregisterEventListener(eventListener);
     }
