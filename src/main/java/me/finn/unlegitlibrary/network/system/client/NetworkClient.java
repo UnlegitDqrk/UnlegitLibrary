@@ -13,7 +13,9 @@ import me.finn.unlegitlibrary.utils.Logger;
 import javax.net.ssl.*;
 import java.io.*;
 import java.net.ConnectException;
+import java.net.InetSocketAddress;
 import java.net.Proxy;
+import java.net.Socket;
 import java.security.KeyStore;
 import java.security.cert.CertificateFactory;
 
@@ -30,6 +32,11 @@ public final class NetworkClient {
     private final SSLSocketFactory sslSocketFactory;
     private final SSLParameters sslParameters;
     private int clientID = -1;
+    private final Proxy proxy;
+
+    public Proxy getProxy() {
+        return proxy;
+    }
 
     public int getClientID() {
         return clientID;
@@ -76,7 +83,7 @@ public final class NetworkClient {
     private NetworkClient(String host, int port, PacketHandler packetHandler,
                           EventManager eventManager, Logger logger,
                           int timeout, SSLSocketFactory sslSocketFactory,
-                          SSLParameters sslParameters) {
+                          SSLParameters sslParameters, Proxy proxy) {
         this.host = host;
         this.port = port;
         this.packetHandler = packetHandler;
@@ -88,6 +95,7 @@ public final class NetworkClient {
 
         this.packetHandler.setClientInstance(this);
         this.packetHandler.registerPacket(new ClientIDPacket());
+        this.proxy = proxy;
     }
 
     public boolean isConnected() {
@@ -104,7 +112,11 @@ public final class NetworkClient {
         try {
             if (sslSocketFactory == null) throw new ConnectException("SSL socket factory not set. Client certificate required!");
 
-            socket = (SSLSocket) sslSocketFactory.createSocket(host, port);
+            if (proxy != null) {
+                Socket rawSocket = new Socket(proxy);
+                rawSocket.connect(new InetSocketAddress(host, port), timeout);
+                socket = (SSLSocket) sslSocketFactory.createSocket(rawSocket, host, port, true);
+            } else socket = (SSLSocket) sslSocketFactory.createSocket(host, port);
 
             if (sslParameters != null) socket.setSSLParameters(sslParameters);
             else {
@@ -202,6 +214,7 @@ public final class NetworkClient {
         private File caFolder;
         private File clientFolder;
         private File keyFolder;
+        private Proxy proxy;
 
         public ClientBuilder setHost(String host) { this.host = host; return this; }
         public ClientBuilder setPort(int port) { this.port = port; return this; }
@@ -213,6 +226,7 @@ public final class NetworkClient {
         public ClientBuilder setSSLParameters(SSLParameters params) { this.sslParameters = params; return this; }
         public ClientBuilder setRootCAFolder(File folder) { this.caFolder = folder; return this; }
         public ClientBuilder setClientCertificatesFolder(File clientFolder, File keyFolder) { this.clientFolder = clientFolder; this.keyFolder = keyFolder; return this; }
+        public ClientBuilder setProxy(Proxy proxy) { this.proxy = proxy; return this; }
 
         public NetworkClient build() {
             if (sslSocketFactory == null && caFolder != null) {
@@ -221,7 +235,7 @@ public final class NetworkClient {
             }
 
             return new NetworkClient(host, port, packetHandler, eventManager, logger,
-                    timeout, sslSocketFactory, sslParameters);
+                    timeout, sslSocketFactory, sslParameters, proxy);
         }
 
         public static SSLSocketFactory createSSLSocketFactory(File caFolder, File clientCertFolder, File clientKeyFolder) throws Exception {
