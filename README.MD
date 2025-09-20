@@ -26,7 +26,7 @@ In this context, OAPL terms take precedence.<br />
     <dependency>
         <groupId>me.finn.unlegitlibrary</groupId>
         <artifactId>unlegitlibrary</artifactId>
-        <version>1.5.15</version>
+        <version>VERSION</version>
     </dependency>
 </dependencies>
 ````
