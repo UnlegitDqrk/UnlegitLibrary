@@ -5,6 +5,7 @@ import me.finn.unlegitlibrary.network.system.client.events.*;
 import me.finn.unlegitlibrary.network.system.packets.Packet;
 import me.finn.unlegitlibrary.network.system.packets.PacketHandler;
 import me.finn.unlegitlibrary.network.system.packets.impl.ClientIDPacket;
+import me.finn.unlegitlibrary.network.system.server.ConnectionHandler;
 import me.finn.unlegitlibrary.network.utils.PemUtils;
 import me.finn.unlegitlibrary.utils.DefaultMethodsOverrider;
 import me.finn.unlegitlibrary.utils.Logger;
@@ -172,6 +173,12 @@ public final class NetworkClient {
         }
 
         return true;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (!(obj instanceof NetworkClient target)) return false;
+        return target.getClientID() == clientID;
     }
 
     public boolean sendPacket(Packet packet) throws IOException, ClassNotFoundException {

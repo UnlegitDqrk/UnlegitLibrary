@@ -33,6 +33,17 @@ public final class NetworkServer {
         return connectionHandlers;
     }
 
+    public ConnectionHandler getConnectionHandlerByID(int clientID) {
+        for (ConnectionHandler connectionHandler : connectionHandlers) if (connectionHandler.getClientID() == clientID) return connectionHandler;
+        return null;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (!(obj instanceof NetworkServer target)) return false;
+        return super.equals(obj);
+    }
+
     public int getPort() {
         return port;
     }
@@ -53,7 +64,7 @@ public final class NetworkServer {
         return eventManager;
     }
 
-    private boolean requireClientCert;
+    private final boolean requireClientCert;
 
     private NetworkServer(int port, PacketHandler packetHandler, EventManager eventManager,
                           Logger logger, int timeout, SSLServerSocketFactory factory, boolean requireClientCert) {

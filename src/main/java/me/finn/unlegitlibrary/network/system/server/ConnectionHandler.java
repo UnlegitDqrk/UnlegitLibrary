@@ -19,6 +19,12 @@ public class ConnectionHandler {
     private ObjectInputStream inputStream;
     private final NetworkServer server;
 
+    @Override
+    public boolean equals(Object obj) {
+        if (!(obj instanceof ConnectionHandler target)) return false;
+        return target.getClientID() == clientID;
+    }
+
     public SSLSocket getSocket() {
         return socket;
     }
