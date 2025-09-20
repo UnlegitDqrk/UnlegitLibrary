@@ -7,6 +7,8 @@
     <groupId>me.finn.unlegitlibrary</groupId>
     <artifactId>unlegitlibrary</artifactId>
     <version>1.5.15</version>
+    <url>https://unlegitdqrk.dev/UnlegitLibrary/</url>
+    <description>Just a big library</description>
 
     <properties>
         <maven.compiler.source>1.8</maven.compiler.source>
@@ -21,6 +23,22 @@
             <url>https://maven.pkg.github.com/unlegitdqrk/unlegitlibrary</url>
         </repository>
     </distributionManagement>
+
+    <developers>
+        <developer>
+            <name>UnlegitDqrk</name>
+            <url>https://unlegitdqrk.dev/</url>
+            <roles>
+                <role>Owner</role>
+                <role>Head Developer</role>
+            </roles>
+        </developer>
+    </developers>
+
+    <issueManagement>
+        <system>GitHub Issue Tracker</system>
+        <url>https://github.com/UnlegitDqrk/UnlegitLibrary/issues</url>
+    </issueManagement>
 
     <build>
         <plugins>
