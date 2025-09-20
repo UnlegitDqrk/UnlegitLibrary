@@ -40,6 +40,13 @@
         <url>https://github.com/UnlegitDqrk/UnlegitLibrary/issues</url>
     </issueManagement>
 
+    <licenses>
+        <license>
+            <name>GNU General Public License v3.0</name>
+            <url>https://github.com/UnlegitDqrk/UnlegitLibrary/blob/master/LICENSE</url>
+        </license>
+    </licenses>
+
     <build>
         <plugins>
             <plugin>
