@@ -1,27 +1,21 @@
-/*
- * Copyright (C) 2025 UnlegitDqrk - All Rights Reserved
- *
- * You are unauthorized to remove this copyright.
- * You have to give Credits to the Author in your project and link this GitHub site: https://github.com/UnlegitDqrk
- * See LICENSE-File if exists
- */
-
 package me.finn.unlegitlibrary.network.system.server;
 
 import me.finn.unlegitlibrary.event.EventManager;
-import me.finn.unlegitlibrary.network.system.packets.Packet;
 import me.finn.unlegitlibrary.network.system.packets.PacketHandler;
 import me.finn.unlegitlibrary.network.system.packets.impl.ClientIDPacket;
 import me.finn.unlegitlibrary.network.system.server.events.IncomingConnectionEvent;
+import me.finn.unlegitlibrary.network.utils.PemUtils;
 import me.finn.unlegitlibrary.utils.DefaultMethodsOverrider;
 import me.finn.unlegitlibrary.utils.Logger;
 
-import java.io.IOException;
-import java.net.ServerSocket;
+import javax.net.ssl.*;
+import java.io.File;
+import java.io.FileInputStream;
 import java.net.Socket;
+import java.security.KeyStore;
+import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 public final class NetworkServer {
     private final int port;
@@ -29,33 +23,14 @@ public final class NetworkServer {
     private final EventManager eventManager;
     private final Logger logger;
     private final int timeout;
-    private final int maxRestartAttempts;
-    private final int restartDelay;
+    private SSLServerSocket serverSocket;
+    private final SSLServerSocketFactory sslServerSocketFactory;
+
     private final List<ConnectionHandler> connectionHandlers = new ArrayList<>();
-    private int currentAttempts;
-    private ServerSocket serverSocket;
-    private NetworkServer(int port, PacketHandler packetHandler, EventManager eventManager, Logger logger, int maxRestartAttempts, int restartDelay, int timeout) {
-        this.port = port;
-        this.timeout = timeout;
+    private final Thread incomingThread = new Thread(this::incomingConnections);
 
-        this.packetHandler = packetHandler;
-        this.eventManager = eventManager;
-        this.logger = logger;
-
-        this.maxRestartAttempts = maxRestartAttempts;
-        this.restartDelay = restartDelay;
-        this.currentAttempts = 0;
-
-        this.packetHandler.setServerInstance(this);
-        this.packetHandler.registerPacket(new ClientIDPacket());
-    }    public final Thread incomingConnectionThread = new Thread(this::incomingConnection);
-
-    public Logger getLogger() {
-        return logger;
-    }
-
-    public EventManager getEventManager() {
-        return eventManager;
+    public List<ConnectionHandler> getConnectionHandlers() {
+        return connectionHandlers;
     }
 
     public int getPort() {
@@ -66,164 +41,133 @@ public final class NetworkServer {
         return packetHandler;
     }
 
-    public List<ConnectionHandler> getConnectionHandlers() {
-        return connectionHandlers;
+    public Logger getLogger() {
+        return logger;
     }
 
-    public boolean isAutoRestartEnabled() {
-        return maxRestartAttempts != 0;
+    public SSLServerSocket getServerSocket() {
+        return serverSocket;
     }
 
-    public boolean isRunning() {
-        return serverSocket != null && !serverSocket.isClosed() && serverSocket.isBound() &&
-                incomingConnectionThread.isAlive() && !incomingConnectionThread.isInterrupted();
+    public EventManager getEventManager() {
+        return eventManager;
     }
 
-    public ConnectionHandler getConnectionHandlerByID(int clientID) {
-        for (ConnectionHandler connectionHandler : connectionHandlers)
-            if (connectionHandler.getClientID() == clientID) return connectionHandler;
-        return null;
+    private boolean requireClientCert;
+
+    private NetworkServer(int port, PacketHandler packetHandler, EventManager eventManager,
+                          Logger logger, int timeout, SSLServerSocketFactory factory, boolean requireClientCert) {
+        this.port = port; this.packetHandler = packetHandler; this.eventManager = eventManager;
+        this.logger = logger; this.timeout = timeout; this.sslServerSocketFactory = factory;
+
+        this.packetHandler.setServerInstance(this);
+        this.packetHandler.registerPacket(new ClientIDPacket());
+        this.requireClientCert = requireClientCert;
     }
 
-    public synchronized boolean start() {
-        if (isRunning()) return false;
-
-        if (logger == null) System.out.println("Trying to start on port " + port + "...");
-        else logger.info("Trying to start on port " + port + "...");
-
+    public boolean start() {
         try {
-            serverSocket = new ServerSocket(port);
+            serverSocket = (SSLServerSocket) sslServerSocketFactory.createServerSocket(port);
+            serverSocket.setNeedClientAuth(requireClientCert);
             serverSocket.setSoTimeout(timeout);
-
-            incomingConnectionThread.start();
-
-            if (currentAttempts == 0) currentAttempts++;
-            if (logger == null) System.out.println("Started at port " + port + " (Attempts: " + currentAttempts + ")");
-            else logger.info("Started at port " + port + " (Attempts: " + currentAttempts + ")");
-
-            currentAttempts = 0;
+            serverSocket.setEnabledProtocols(new String[]{"TLSv1.3"});
+            incomingThread.start();
+            if (logger != null) logger.log("Server started on port " + port);
+            else System.out.println("Server started on port " + port);
             return true;
-        } catch (IOException exception) {
-            if (maxRestartAttempts != 0) {
-                try {
-                    Thread.sleep(restartDelay);
-                } catch (InterruptedException sleepThreadException) {
-                    if (logger == null) System.err.println("Restart exception: " + sleepThreadException.getMessage());
-                    else logger.exception("Restart exception", sleepThreadException);
-                }
-
-                currentAttempts++;
-                if (currentAttempts <= maxRestartAttempts || maxRestartAttempts < 0) return start();
-            }
-
-            if (logger == null) System.err.println("Failed to start on port " + port + ": " + exception.getMessage());
-            else logger.exception("Failed to start on port " + port, exception);
-        }
-
-        return false;
+        } catch (Exception e) {if (logger != null) logger.exception("Failed to start", e);
+        else System.err.println("Failed to start: " + e.getMessage()); return false; }
     }
 
-    public boolean broadcastPacket(Packet packet) {
-        AtomicBoolean toReturn = new AtomicBoolean(false);
-        connectionHandlers.forEach(connectionHandler -> {
-            try {
-                if (!toReturn.get()) return;
-                toReturn.set(connectionHandler.sendPacket(packet));
-            } catch (IOException | ClassNotFoundException e) {
-                toReturn.set(false);
-            }
-        });
-
-        return toReturn.get();
-    }
-
-    private void incomingConnection() {
-        if (!isRunning()) return;
-
+    private void incomingConnections() {
         try {
-            while (isRunning()) {
+            while (!serverSocket.isClosed()) {
                 Socket socket = serverSocket.accept();
-                socket.setTcpNoDelay(true);
-                socket.setSoTimeout(timeout);
-
-                if (logger == null) System.out.println("Accepted connection from " + socket.getRemoteSocketAddress());
-                else logger.info("Accepted connection from " + socket.getRemoteSocketAddress());
-
-                IncomingConnectionEvent incomingConnectionEvent = new IncomingConnectionEvent(this, socket);
-
-                eventManager.executeEvent(incomingConnectionEvent);
-
-                if (incomingConnectionEvent.isCancelled()) {
-                    socket.close();
-                    return;
+                if (!(socket instanceof SSLSocket ssl)) { socket.close(); continue; }
+                ssl.setTcpNoDelay(true);
+                ssl.setSoTimeout(timeout);
+                try { ssl.startHandshake(); }
+                catch (Exception handshakeEx) {
+                    if (logger != null) logger.exception("Handshake failed", handshakeEx);
+                    else System.err.println("Handshake failed: " + handshakeEx.getMessage());
+                    ssl.close();
+                    continue;
                 }
 
-                ConnectionHandler connectionHandler = new ConnectionHandler(this, socket, connectionHandlers.size() + 1);
-                connectionHandlers.add(connectionHandler);
+                IncomingConnectionEvent event = new IncomingConnectionEvent(this, ssl);
+                eventManager.executeEvent(event);
+                if (event.isCancelled()) { ssl.close(); continue; }
+
+                try {
+                    ConnectionHandler connectionHandler = new ConnectionHandler(this, ssl, connectionHandlers.size() + 1);
+                    connectionHandlers.add(connectionHandler);
+                } catch (Exception exception) {
+                    ssl.close();
+                    continue;
+                }
             }
-        } catch (IOException | ClassNotFoundException exception) {
-            exception.printStackTrace();
-        }
+        } catch (Exception e) { e.printStackTrace(); }
     }
 
-    public boolean sendPacket(int clientID, Packet packet) throws IOException, ClassNotFoundException {
-        return getConnectionHandlerByID(clientID).sendPacket(packet);
-    }
-
-    public boolean sendPacket(Packet packet, int clientID) throws IOException, ClassNotFoundException {
-        return sendPacket(clientID, packet);
-    }
-
+    // --- Builder ---
     public static class ServerBuilder extends DefaultMethodsOverrider {
         private int port;
-
         private PacketHandler packetHandler;
         private EventManager eventManager;
         private Logger logger;
+        private int timeout = 5000;
+        private SSLServerSocketFactory factory;
+        private boolean requireClientCert;
+        private File caFolder;
+        private File serverCertFile;
+        private File serverKeyFile;
 
-        private int maxRestartAttempts = 0;
-        private int restartDelay = 3000;
-        private int timeout = 0;
+        public ServerBuilder setPort(int port) { this.port = port; return this; }
+        public ServerBuilder setPacketHandler(PacketHandler handler) { this.packetHandler = handler; return this; }
+        public ServerBuilder setEventManager(EventManager manager) { this.eventManager = manager; return this; }
+        public ServerBuilder setLogger(Logger logger) { this.logger = logger; return this; }
+        public ServerBuilder setTimeout(int timeout) { this.timeout = timeout; return this; }
+        public ServerBuilder setSSLServerSocketFactory(SSLServerSocketFactory factory) { this.factory = factory; return this; }
+        public ServerBuilder setRequireClientCertificate(boolean requireClientCertificate) { this.requireClientCert = requireClientCertificate; return this; }
+        public ServerBuilder setRootCAFolder(File folder) { this.caFolder = folder; return this; }
+        public ServerBuilder setServerCertificate(File certFile, File keyFile) { this.serverCertFile = certFile; this.serverKeyFile = keyFile; return this; }
 
-        public final NetworkServer build() {
-            return new NetworkServer(port, packetHandler, eventManager, logger, maxRestartAttempts, restartDelay, timeout);
+        public NetworkServer build() {
+            if (factory == null && caFolder != null && serverCertFile != null && serverKeyFile != null) {
+                try { factory = createSSLServerSocketFactory(caFolder, serverCertFile, serverKeyFile); }
+                catch (Exception e) { throw new RuntimeException("Failed to create SSLServerSocketFactory", e); }
+            }
+            return new NetworkServer(port, packetHandler, eventManager, logger, timeout, factory, requireClientCert);
         }
 
-        public final ServerBuilder setEventManager(EventManager eventManager) {
-            this.eventManager = eventManager;
-            return this;
-        }
+        public static SSLServerSocketFactory createSSLServerSocketFactory(File caFolder, File serverCert, File serverKey) throws Exception {
+            // TrustStore (Root-CAs)
+            KeyStore trustStore = KeyStore.getInstance(KeyStore.getDefaultType());
+            trustStore.load(null, null);
 
-        public final ServerBuilder setLogger(Logger logger) {
-            this.logger = logger;
-            return this;
-        }
+            int caIndex = 1;
+            for (File caFile : caFolder.listFiles((f) -> f.getName().endsWith(".pem"))) {
+                try (FileInputStream fis = new FileInputStream(caFile)) {
+                    java.security.cert.Certificate cert = PemUtils.loadCertificate(caFile);
+                    trustStore.setCertificateEntry("ca" + (caIndex++), cert);
+                }
+            }
 
-        public final ServerBuilder setMaxReconnectAttempts(int maxRestartAttempts) {
-            this.maxRestartAttempts = maxRestartAttempts;
-            return this;
-        }
+            TrustManagerFactory tmf = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
+            tmf.init(trustStore);
 
-        public final ServerBuilder setPacketHandler(PacketHandler packetHandler) {
-            this.packetHandler = packetHandler;
-            return this;
-        }
+            KeyStore keyStore = KeyStore.getInstance("PKCS12");
+            keyStore.load(null, null);
+            java.security.PrivateKey key = PemUtils.loadPrivateKey(serverKey);
+            java.security.cert.Certificate cert = PemUtils.loadCertificate(serverCert);
+            keyStore.setKeyEntry("server", key, null, new java.security.cert.Certificate[]{cert});
 
-        public final ServerBuilder setPort(int port) {
-            this.port = port;
-            return this;
-        }
+            KeyManagerFactory kmf = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
+            kmf.init(keyStore, null);
 
-        public final ServerBuilder setReconnectDelay(int reconnectDelay) {
-            this.restartDelay = reconnectDelay;
-            return this;
-        }
-
-        public final ServerBuilder setTimeout(int timeout) {
-            this.timeout = timeout;
-            return this;
+            SSLContext sslContext = SSLContext.getInstance("TLSv1.3");
+            sslContext.init(kmf.getKeyManagers(), tmf.getTrustManagers(), null);
+            return sslContext.getServerSocketFactory();
         }
     }
-
-
 }

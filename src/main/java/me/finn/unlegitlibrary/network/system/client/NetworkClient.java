@@ -1,11 +1,3 @@
-/*
- * Copyright (C) 2025 UnlegitDqrk - All Rights Reserved
- *
- * You are unauthorized to remove this copyright.
- * You have to give Credits to the Author in your project and link this GitHub site: https://github.com/UnlegitDqrk
- * See LICENSE-File if exists
- */
-
 package me.finn.unlegitlibrary.network.system.client;
 
 import me.finn.unlegitlibrary.event.EventManager;
@@ -13,15 +5,16 @@ import me.finn.unlegitlibrary.network.system.client.events.*;
 import me.finn.unlegitlibrary.network.system.packets.Packet;
 import me.finn.unlegitlibrary.network.system.packets.PacketHandler;
 import me.finn.unlegitlibrary.network.system.packets.impl.ClientIDPacket;
+import me.finn.unlegitlibrary.network.utils.PemUtils;
 import me.finn.unlegitlibrary.utils.DefaultMethodsOverrider;
 import me.finn.unlegitlibrary.utils.Logger;
 
-import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
+import javax.net.ssl.*;
+import java.io.*;
 import java.net.ConnectException;
-import java.net.Socket;
-import java.net.SocketException;
+import java.net.Proxy;
+import java.security.KeyStore;
+import java.security.cert.CertificateFactory;
 
 public final class NetworkClient {
     private final String host;
@@ -29,50 +22,33 @@ public final class NetworkClient {
     private final PacketHandler packetHandler;
     private final EventManager eventManager;
     private final Logger logger;
-    private final int maxReconnectAttempts;
-    private final int reconnectDelay;
-    private Socket socket;
     private final int timeout;
+    private SSLSocket socket;
     private ObjectOutputStream outputStream;
     private ObjectInputStream inputStream;
-    private int clientID;
-    private int currentAttempts;
-    private NetworkClient(String host, int port, PacketHandler packetHandler, EventManager eventManager, Logger logger, int reconnectAttempts, int reconnectDelay, int timeout) {
-        this.host = host;
-        this.port = port;
-        this.clientID = -1;
-        this.timeout = timeout;
+    private final SSLSocketFactory sslSocketFactory;
+    private final SSLParameters sslParameters;
 
-        this.packetHandler = packetHandler;
-        this.eventManager = eventManager;
-        this.logger = logger;
+    private final Thread receiveThread = new Thread(this::receive);
 
-        this.maxReconnectAttempts = reconnectAttempts;
-        this.reconnectDelay = reconnectDelay;
-        this.currentAttempts = 0;
-
-        this.packetHandler.setClientInstance(this);
-        this.packetHandler.registerPacket(new ClientIDPacket());
-    }
-
-    public int getClientID() {
-        return clientID;
-    }    private final Thread receiveThread = new Thread(this::receive);
-
-    public void setClientID(int clientID) {
-        if (this.clientID == -1) this.clientID = clientID;
-    }
-
-    public Socket getSocket() {
-        return socket;
+    public PacketHandler getPacketHandler() {
+        return packetHandler;
     }
 
     public EventManager getEventManager() {
         return eventManager;
     }
 
-    public PacketHandler getPacketHandler() {
-        return packetHandler;
+    public ObjectInputStream getInputStream() {
+        return inputStream;
+    }
+
+    public SSLSocket getSocket() {
+        return socket;
+    }
+
+    public ObjectOutputStream getOutputStream() {
+        return outputStream;
     }
 
     public Logger getLogger() {
@@ -87,200 +63,188 @@ public final class NetworkClient {
         return host;
     }
 
-    public boolean isConnected() {
-        return socket != null && socket.isConnected() && !socket.isClosed() && socket.isBound()
-                && receiveThread.isAlive() && !receiveThread.isInterrupted();
+    private NetworkClient(String host, int port, PacketHandler packetHandler,
+                          EventManager eventManager, Logger logger,
+                          int timeout, SSLSocketFactory sslSocketFactory,
+                          SSLParameters sslParameters) {
+        this.host = host;
+        this.port = port;
+        this.packetHandler = packetHandler;
+        this.eventManager = eventManager;
+        this.logger = logger;
+        this.timeout = timeout;
+        this.sslSocketFactory = sslSocketFactory;
+        this.sslParameters = sslParameters;
+
+        this.packetHandler.setClientInstance(this);
+        this.packetHandler.registerPacket(new ClientIDPacket());
     }
 
-    public boolean isAutoReconnectEnabled() {
-        return maxReconnectAttempts != 0;
+    public boolean isConnected() {
+        return socket != null && socket.isConnected() && !socket.isClosed()
+                && receiveThread.isAlive() && !receiveThread.isInterrupted();
     }
 
     public synchronized boolean connect() throws ConnectException {
         if (isConnected()) return false;
 
-        if (logger == null) System.out.println("Trying to connect to " + host + ":" + port + "...");
-        else logger.info("Trying to connect to " + host + ":" + port + "...");
+        if (logger != null) logger.info("Trying to connect to " + host + ":" + port + "...");
+        else System.out.println("Trying to connect to " + host + ":" + port + "...");
 
         try {
-            socket = new Socket(host, port);
+            if (sslSocketFactory == null) throw new ConnectException("SSL socket factory not set. Client certificate required!");
+
+            socket = (SSLSocket) sslSocketFactory.createSocket(host, port);
+
+            if (sslParameters != null) socket.setSSLParameters(sslParameters);
+            else {
+                SSLParameters defaultParams = socket.getSSLParameters();
+                defaultParams.setProtocols(new String[]{"TLSv1.3"});
+                socket.setSSLParameters(defaultParams);
+            }
+
             socket.setTcpNoDelay(true);
             socket.setSoTimeout(timeout);
+            try {
+                socket.startHandshake();
+            } catch (Exception handshakeEx) {
+                throw new ConnectException("Handshake failed: " + handshakeEx.getMessage());
+            }
 
             outputStream = new ObjectOutputStream(socket.getOutputStream());
             inputStream = new ObjectInputStream(socket.getInputStream());
 
             receiveThread.start();
-
-            if (currentAttempts == 0) currentAttempts++;
-            if (logger == null)
-                System.out.println("Connected to " + host + ":" + port + " (Attempts: " + currentAttempts + ")");
-            else logger.info("Connected to " + host + ":" + port + " (Attempts: " + currentAttempts + ")");
-
             eventManager.executeEvent(new ClientConnectedEvent(this));
-
-            currentAttempts = 0;
+            if (logger != null) logger.info("Connected to " + host + ":" + port);
+            else System.out.println("Connected to " + host + ":" + port);
             return true;
-        } catch (IOException exception) {
-            if (isAutoReconnectEnabled()) {
-                try {
-                    Thread.sleep(reconnectDelay);
-                } catch (InterruptedException sleepThreadException) {
-                    if (logger == null) System.err.println("Reconnect exception: " + sleepThreadException.getMessage());
-                    else logger.exception("Reconnect exception", sleepThreadException);
-                }
-
-                currentAttempts++;
-                if (currentAttempts < maxReconnectAttempts || maxReconnectAttempts < 0) return connect();
-            }
+        } catch (Exception e) {
+            throw new ConnectException("Failed to connect: " + e.getMessage());
         }
-
-        throw new ConnectException("Failed to connect to " + host + ":" + port);
     }
 
     private void receive() {
-        if (!isConnected()) return;
-
-        while (isConnected()) {
-            try {
+        try {
+            while (isConnected()) {
                 Object received = inputStream.readObject();
-
-                if (received instanceof Integer) {
-                    int packetID = (Integer) received;
-                    if (packetHandler.isPacketIDRegistered(packetID)) {
-                        Packet packet = packetHandler.getPacketByID(packetID);
-                        if (packetHandler.handlePacket(packetID, packet, inputStream))
-                            eventManager.executeEvent(new C_PacketReceivedEvent(this, packet));
-                        else
-                            eventManager.executeEvent(new C_PacketReceivedFailedEvent(this, packet));
-                    } else eventManager.executeEvent(new C_UnknownObjectReceivedEvent(this, received));
-                } else eventManager.executeEvent(new C_UnknownObjectReceivedEvent(this, received));
-            } catch (SocketException ignored) {
-                try {
-                    disconnect();
-                } catch (ConnectException exception) {
-                    exception.printStackTrace();
-                }
-            } catch (Exception exception) {
-                exception.printStackTrace();
-                return;
+                handleReceived(received);
             }
+        } catch (Exception e) { disconnect(); }
+    }
+
+    private void handleReceived(Object received) throws IOException, ClassNotFoundException {
+        if (received instanceof Integer id) {
+            if (packetHandler.isPacketIDRegistered(id)) {
+                Packet packet = packetHandler.getPacketByID(id);
+                boolean handled = packetHandler.handlePacket(id, packet, inputStream);
+                if (handled) eventManager.executeEvent(new C_PacketReceivedEvent(this, packet));
+                else eventManager.executeEvent(new C_PacketReceivedFailedEvent(this, packet));
+            } else eventManager.executeEvent(new C_UnknownObjectReceivedEvent(this, received));
+        } else eventManager.executeEvent(new C_UnknownObjectReceivedEvent(this, received));
+    }
+
+    public synchronized boolean disconnect() {
+        if (!isConnected()) return false;
+        try {
+            receiveThread.interrupt();
+            if (outputStream != null) outputStream.close();
+            if (inputStream != null) inputStream.close();
+            if (socket != null) socket.close();
+        } catch (IOException e) {
+            if (logger != null) logger.exception("Error closing connection", e);
+            else System.err.println("Error closing connection: " + e.getMessage());
+        } finally {
+            socket = null;
+            outputStream = null;
+            inputStream = null;
+            eventManager.executeEvent(new ClientDisconnectedEvent(this));
         }
+        return true;
     }
 
     public boolean sendPacket(Packet packet) throws IOException, ClassNotFoundException {
         if (!isConnected()) return false;
-
-        try {
-            if (packetHandler.sendPacket(packet, outputStream)) {
-                eventManager.executeEvent(new C_PacketSendEvent(this, packet));
-                return true;
-            } else {
-                eventManager.executeEvent(new C_PacketSendFailedEvent(this, packet));
-                return false;
-            }
-        } catch (IOException | ClassNotFoundException exception) {
-            throw exception;
-        }
+        boolean sent = packetHandler.sendPacket(packet, outputStream);
+        if (sent) eventManager.executeEvent(new C_PacketSendEvent(this, packet));
+        else eventManager.executeEvent(new C_PacketSendFailedEvent(this, packet));
+        return sent;
     }
 
-    public synchronized boolean disconnect() throws ConnectException {
-        boolean wasConnected = isConnected();
-
-        if (wasConnected) {
-            if (logger == null) System.out.println("Disconnecting from server...");
-            else logger.info("Disconnecting from server...");
-        }
-
-        if (receiveThread.isAlive() && !receiveThread.isInterrupted()) receiveThread.interrupt();
-
-        if (wasConnected) {
-            try {
-                outputStream.close();
-                inputStream.close();
-                socket.close();
-            } catch (IOException exception) {
-                if (logger == null) System.err.println("Failed to close socket: " + exception.getMessage());
-                else logger.exception("Failed to close socket", exception);
-            }
-        }
-
-        outputStream = null;
-        inputStream = null;
-        socket = null;
-
-        currentAttempts = 0;
-
-        if (wasConnected) {
-            if (logger == null) System.out.println("Disconnected from server");
-            else logger.info("Disconnected from server");
-        }
-
-        eventManager.executeEvent(new ClientDisconnectedEvent(this));
-
-        clientID = -1;
-        if (isAutoReconnectEnabled() && (currentAttempts < maxReconnectAttempts || maxReconnectAttempts < 0))
-            return connect();
-
-        return true;
-    }
-
+    // --- Builder ---
     public static class ClientBuilder extends DefaultMethodsOverrider {
         private String host;
         private int port;
-
         private PacketHandler packetHandler;
         private EventManager eventManager;
         private Logger logger;
+        private int timeout = 5000;
+        private SSLSocketFactory sslSocketFactory;
+        private SSLParameters sslParameters;
+        private File caFolder;
+        private File clientFolder;
+        private File keyFolder;
 
-        private int maxReconnectAttempts = 0;
-        private int reconnectDelay = 3000;
-        private int timeout = 0;
+        public ClientBuilder setHost(String host) { this.host = host; return this; }
+        public ClientBuilder setPort(int port) { this.port = port; return this; }
+        public ClientBuilder setPacketHandler(PacketHandler handler) { this.packetHandler = handler; return this; }
+        public ClientBuilder setEventManager(EventManager manager) { this.eventManager = manager; return this; }
+        public ClientBuilder setLogger(Logger logger) { this.logger = logger; return this; }
+        public ClientBuilder setTimeout(int timeout) { this.timeout = timeout; return this; }
+        public ClientBuilder setSSLSocketFactory(SSLSocketFactory factory) { this.sslSocketFactory = factory; return this; }
+        public ClientBuilder setSSLParameters(SSLParameters params) { this.sslParameters = params; return this; }
+        public ClientBuilder setRootCAFolder(File folder) { this.caFolder = folder; return this; }
+        public ClientBuilder setClientCertificatesFolder(File clientFolder, File keyFolder) { this.clientFolder = clientFolder; this.keyFolder = keyFolder; return this; }
 
-        public final NetworkClient build() {
-            return new NetworkClient(host, port, packetHandler, eventManager, logger, maxReconnectAttempts, reconnectDelay, timeout);
+        public NetworkClient build() {
+            if (sslSocketFactory == null && caFolder != null) {
+                try { sslSocketFactory = createSSLSocketFactory(caFolder, clientFolder, keyFolder); }
+                catch (Exception e) { throw new RuntimeException("Failed to create SSLFactory", e); }
+            }
+
+            return new NetworkClient(host, port, packetHandler, eventManager, logger,
+                    timeout, sslSocketFactory, sslParameters);
         }
 
-        public final ClientBuilder setEventManager(EventManager eventManager) {
-            this.eventManager = eventManager;
-            return this;
-        }
+        public static SSLSocketFactory createSSLSocketFactory(File caFolder, File clientCertFolder, File clientKeyFolder) throws Exception {
+            // TrustStore (Root-CAs)
+            KeyStore trustStore = KeyStore.getInstance(KeyStore.getDefaultType());
+            trustStore.load(null, null);
 
-        public final ClientBuilder setHost(String host) {
-            this.host = host;
-            return this;
-        }
+            int caIndex = 1;
+            for (File caFile : caFolder.listFiles((f) -> f.getName().endsWith(".pem"))) {
+                try (FileInputStream fis = new FileInputStream(caFile)) {
+                    CertificateFactory cf = CertificateFactory.getInstance("X.509");
+                    java.security.cert.Certificate caCert = cf.generateCertificate(fis);
+                    trustStore.setCertificateEntry("ca" + (caIndex++), caCert);
+                }
+            }
 
-        public final ClientBuilder setLogger(Logger logger) {
-            this.logger = logger;
-            return this;
-        }
+            TrustManagerFactory tmf = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
+            tmf.init(trustStore);
 
-        public final ClientBuilder setMaxReconnectAttempts(int maxReconnectAttempts) {
-            this.maxReconnectAttempts = maxReconnectAttempts;
-            return this;
-        }
+            KeyStore keyStore = KeyStore.getInstance("PKCS12");
+            keyStore.load(null, null); // Kein Passwort nötig
 
-        public final ClientBuilder setPacketHandler(PacketHandler packetHandler) {
-            this.packetHandler = packetHandler;
-            return this;
-        }
+            int clientIndex = 1;
+            for (File certFile : clientCertFolder.listFiles((f) -> f.getName().endsWith(".crt"))) {
+                String baseName = certFile.getName().replace(".crt", "");
+                File keyFile = new File(clientKeyFolder, baseName + ".key");
+                if (!keyFile.exists()) continue;
 
-        public final ClientBuilder setPort(int port) {
-            this.port = port;
-            return this;
-        }
+                java.security.PrivateKey key = PemUtils.loadPrivateKey(keyFile);
+                java.security.cert.Certificate cert = PemUtils.loadCertificate(certFile);
 
-        public final ClientBuilder setReconnectDelay(int reconnectDelay) {
-            this.reconnectDelay = reconnectDelay;
-            return this;
-        }
+                keyStore.setKeyEntry("client" + (clientIndex++), key, null, new java.security.cert.Certificate[]{cert});
+            }
 
-        public final ClientBuilder setTimeout(int timeout) {
-            this.timeout = timeout;
-            return this;
+            KeyManagerFactory kmf = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
+            kmf.init(keyStore, null);
+
+            // SSLContext
+            SSLContext sslContext = SSLContext.getInstance("TLSv1.3");
+            sslContext.init(kmf.getKeyManagers(), tmf.getTrustManagers(), null);
+            return sslContext.getSocketFactory();
         }
     }
-
-
 }

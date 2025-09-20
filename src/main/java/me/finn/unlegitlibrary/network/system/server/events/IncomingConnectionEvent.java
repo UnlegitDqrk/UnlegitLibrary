@@ -11,13 +11,16 @@ package me.finn.unlegitlibrary.network.system.server.events;
 import me.finn.unlegitlibrary.event.impl.CancellableEvent;
 import me.finn.unlegitlibrary.network.system.server.NetworkServer;
 
+import javax.net.ssl.SSLSession;
+import javax.net.ssl.SSLSocket;
 import java.net.Socket;
+import java.security.cert.X509Certificate;
 
 public class IncomingConnectionEvent extends CancellableEvent {
     public final NetworkServer server;
-    public final Socket socket;
+    public final SSLSocket socket;
 
-    public IncomingConnectionEvent(NetworkServer server, Socket socket) {
+    public IncomingConnectionEvent(NetworkServer server, SSLSocket socket) {
         this.server = server;
         this.socket = socket;
     }

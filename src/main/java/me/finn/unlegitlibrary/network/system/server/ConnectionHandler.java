@@ -1,35 +1,42 @@
-/*
- * Copyright (C) 2025 UnlegitDqrk - All Rights Reserved
- *
- * You are unauthorized to remove this copyright.
- * You have to give Credits to the Author in your project and link this GitHub site: https://github.com/UnlegitDqrk
- * See LICENSE-File if exists
- */
-
 package me.finn.unlegitlibrary.network.system.server;
 
 import me.finn.unlegitlibrary.network.system.packets.Packet;
 import me.finn.unlegitlibrary.network.system.packets.impl.ClientIDPacket;
 import me.finn.unlegitlibrary.network.system.server.events.*;
 
+import javax.net.ssl.SSLSession;
+import javax.net.ssl.SSLSocket;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
-import java.net.Socket;
 import java.net.SocketException;
+import java.security.cert.X509Certificate;
 
 public class ConnectionHandler {
-
-    public final NetworkServer networkServer;
-    private Socket socket;
+    private SSLSocket socket;
     private int clientID;
-
     private ObjectOutputStream outputStream;
     private ObjectInputStream inputStream;
-    public ConnectionHandler(NetworkServer server, Socket socket, int clientID) throws IOException, ClassNotFoundException {
-        this.networkServer = server;
-        this.socket = socket;
-        this.clientID = clientID;
+    private final NetworkServer server;
+
+    public SSLSocket getSocket() {
+        return socket;
+    }
+
+    public ObjectOutputStream getOutputStream() {
+        return outputStream;
+    }
+
+    public ObjectInputStream getInputStream() {
+        return inputStream;
+    }
+
+    public NetworkServer getServer() {
+        return server;
+    }
+
+    public ConnectionHandler(NetworkServer server, SSLSocket socket, int clientID) throws IOException, ClassNotFoundException {
+        this.server = server; this.socket = socket; this.clientID = clientID;
 
         outputStream = new ObjectOutputStream(socket.getOutputStream());
         inputStream = new ObjectInputStream(socket.getInputStream());
@@ -37,97 +44,57 @@ public class ConnectionHandler {
         receiveThread.start();
 
         sendPacket(new ClientIDPacket());
-        networkServer.getEventManager().executeEvent(new ConnectionHandlerConnectedEvent(this));
-    }    public final Thread receiveThread = new Thread(this::receive);
-
-    public int getClientID() {
-        return clientID;
+        server.getEventManager().executeEvent(new ConnectionHandlerConnectedEvent(this));
     }
 
-    public final boolean isConnected() {
-        return networkServer.isRunning() && socket != null && socket.isConnected() && !socket.isClosed() && socket.isBound()
-                && receiveThread.isAlive() && !receiveThread.isInterrupted();
-    }
+    public final Thread receiveThread = new Thread(this::receive);
+
+    public int getClientID() { return clientID; }
+    public boolean isConnected() { return socket != null && socket.isConnected() && !socket.isClosed() && receiveThread.isAlive(); }
 
     public synchronized boolean disconnect() {
-        boolean wasConnected = isConnected();
+        if (!isConnected()) return false;
+        if (receiveThread.isAlive()) receiveThread.interrupt();
 
-        if (wasConnected) {
-            if (networkServer.getLogger() == null)
-                System.out.println("Client ID '" + clientID + "' is disconnecting from server...");
-            else networkServer.getLogger().info("Client ID '" + clientID + "' is disconnecting from server...");
-        }
+        try { outputStream.close(); inputStream.close(); socket.close(); } catch (IOException ignored) {}
+        socket = null; outputStream = null; inputStream = null; clientID = -1;
 
-        if (receiveThread.isAlive() && !receiveThread.isInterrupted()) receiveThread.interrupt();
+        server.getConnectionHandlers().remove(this);
+        server.getEventManager().executeEvent(new ConnectionHandlerDisconnectedEvent(this));
 
-        if (wasConnected) {
-            try {
-                outputStream.close();
-                inputStream.close();
-                socket.close();
-            } catch (IOException exception) {
-                if (networkServer.getLogger() == null)
-                    System.err.println("Client ID '" + clientID + "' failed to close socket: " + exception.getMessage());
-                else
-                    networkServer.getLogger().exception("Client ID '" + clientID + "' failed to close socket", exception);
-            }
-        }
-
-        outputStream = null;
-        inputStream = null;
-        socket = null;
-
-        networkServer.getConnectionHandlers().remove(this);
-
-        if (wasConnected) {
-            if (networkServer.getLogger() == null)
-                System.out.println("Client ID '" + clientID + "' disconnected from server");
-            else networkServer.getLogger().info("Client ID '" + clientID + "' disconnected from server");
-        }
-
-        networkServer.getEventManager().executeEvent(new ConnectionHandlerDisconnectedEvent(this));
-        clientID = -1;
         return true;
     }
 
     public boolean sendPacket(Packet packet) throws IOException, ClassNotFoundException {
         if (!isConnected()) return false;
+        boolean sent = server.getPacketHandler().sendPacket(packet, outputStream);
 
-        if (networkServer.getPacketHandler().sendPacket(packet, outputStream)) {
-            networkServer.getEventManager().executeEvent(new S_PacketSendEvent(packet, this));
-            return true;
-        } else {
-            networkServer.getEventManager().executeEvent(new S_PacketSendFailedEvent(packet, this));
-            return false;
-        }
+        if (sent) server.getEventManager().executeEvent(new S_PacketSendEvent(packet, this));
+        else server.getEventManager().executeEvent(new S_PacketSendFailedEvent(packet, this));
+
+        return sent;
     }
 
     private void receive() {
-        if (!isConnected()) return;
-
         while (isConnected()) {
             try {
                 Object received = inputStream.readObject();
-
                 if (received instanceof Integer) {
-                    int packetID = (Integer) received;
-                    if (networkServer.getPacketHandler().isPacketIDRegistered(packetID)) {
-                        Packet packet = networkServer.getPacketHandler().getPacketByID(packetID);
-                        if (networkServer.getPacketHandler().handlePacket(packetID, packet, inputStream))
-                            networkServer.getEventManager().executeEvent(new S_PacketReceivedEvent(this, packet));
-                        else
-                            networkServer.getEventManager().executeEvent(new S_PacketReceivedFailedEvent(this, packet));
-                    } else
-                        networkServer.getEventManager().executeEvent(new S_UnknownObjectReceivedEvent(received, this));
-                } else networkServer.getEventManager().executeEvent(new S_UnknownObjectReceivedEvent(received, this));
-            } catch (SocketException ignored) {
+                    int id = (Integer) received;
+
+                    if (server.getPacketHandler().isPacketIDRegistered(id)) {
+                        Packet packet = server.getPacketHandler().getPacketByID(id);
+
+                        if (server.getPacketHandler().handlePacket(id, packet, inputStream)) server.getEventManager().executeEvent(new S_PacketReceivedEvent(this, packet));
+                        else server.getEventManager().executeEvent(new S_PacketReceivedFailedEvent(this, packet));
+                    } else server.getEventManager().executeEvent(new S_UnknownObjectReceivedEvent(received, this));
+                } else server.getEventManager().executeEvent(new S_UnknownObjectReceivedEvent(received, this));
+            } catch (SocketException se) { disconnect(); }
+            catch (Exception ex) {
+                if (server.getLogger() != null) server.getLogger().exception("Receive thread exception for client " + clientID, ex);
+                else System.err.println("Receive thread exception for client " + clientID + ": " + ex.getMessage());
                 disconnect();
-            } catch (Exception exception) {
-                exception.printStackTrace();
-                return;
             }
         }
     }
-
-
 }
