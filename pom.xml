@@ -43,7 +43,19 @@
     <licenses>
         <license>
             <name>GNU General Public License v3.0</name>
-            <url>https://github.com/UnlegitDqrk/UnlegitLibrary/blob/master/LICENSE</url>
+            <url>https://www.gnu.org/licenses/gpl-3.0.html</url>
+            <comments>
+                Default license: Applies to all users and projects unless an explicit alternative license has been granted.
+            </comments>
+        </license>
+        <license>
+            <name>Open Autonomous Public License (OAPL)</name>
+            <url>https://github.com/Open-Autonomous-Connection/OAPL/blob/main/LICENSE</url>
+            <comments>
+                Special license: Applies exclusively to the "Open Autonomous Connection (OAC)" project.
+                Within OAC, UnlegitLibrary is additionally licensed under the OAPL.
+                For OAC, OAPL terms take precedence; for all other users, GPLv3 remains binding.
+            </comments>
         </license>
     </licenses>
 
