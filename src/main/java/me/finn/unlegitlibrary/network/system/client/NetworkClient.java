@@ -28,6 +28,15 @@ public final class NetworkClient {
     private ObjectInputStream inputStream;
     private final SSLSocketFactory sslSocketFactory;
     private final SSLParameters sslParameters;
+    private int clientID = -1;
+
+    public int getClientID() {
+        return clientID;
+    }
+
+    public void setClientID(int clientID) {
+        if (this.clientID == -1) this.clientID = clientID;
+    }
 
     private final Thread receiveThread = new Thread(this::receive);
 
@@ -158,8 +167,10 @@ public final class NetworkClient {
             socket = null;
             outputStream = null;
             inputStream = null;
+            clientID = -1;
             eventManager.executeEvent(new ClientDisconnectedEvent(this));
         }
+
         return true;
     }
 
