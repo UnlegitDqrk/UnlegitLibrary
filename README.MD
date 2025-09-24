@@ -12,7 +12,7 @@ Open Autonomous Public License (OAPL)<br />
 A special exception applies exclusively to the project Open Autonomous Connection (OAC).<br />
 Within OAC, the UnlegitLibrary is also licensed under the OAPL.<br />
 In this context, OAPL terms take precedence.<br />
-→ [https://repo.open-autonomous-connection.org/open-autonomous-connection/OAPL
+→ https://repo.open-autonomous-connection.org/open-autonomous-connection/OAPL
 
 ## Certificate generation for NetworkSystem
 ### Creating Root-CA:
