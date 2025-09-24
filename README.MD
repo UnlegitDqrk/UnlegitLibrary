@@ -1,3 +1,6 @@
+> [!IMPORTANT]
+> This GitHub-Site is not active anymore! Please visit me on omy own Repositoryserver [https://repo.unlegitdqrk.dev](https://unlegitdqrk.dev/)
+
 # UnlegitLibrary
 
 ## License Information
@@ -9,27 +12,7 @@ Open Autonomous Public License (OAPL)<br />
 A special exception applies exclusively to the project Open Autonomous Connection (OAC).<br />
 Within OAC, the UnlegitLibrary is also licensed under the OAPL.<br />
 In this context, OAPL terms take precedence.<br />
-→ https://github.com/Open-Autonomous-Connection/OAPL
-
-## Include in own projects
-````
-<repositories>
-    <repository>
-        <id>github</id>
-        <url>https://maven.pkg.github.com/unlegitdqrk/unlegitlibrary</url>
-        <snapshots>
-            <enabled>true</enabled>
-        </snapshots>
-    </repository>
-</repositories>
-<dependencies>
-    <dependency>
-        <groupId>me.finn.unlegitlibrary</groupId>
-        <artifactId>unlegitlibrary</artifactId>
-        <version>VERSION</version>
-    </dependency>
-</dependencies>
-````
+→ [https://repo.open-autonomous-connection.org/open-autonomous-connection/OAPL](https://repo.open-autonomous-connection.org/open-autonomous-connection/OAPL]
 
 ## Certificate generation for NetworkSystem
 ### Creating Root-CA:
